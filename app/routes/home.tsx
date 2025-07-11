@@ -9,6 +9,62 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+interface JoinOrCreateRoomProps {
+  roomId: string;
+  setRoomId: (roomId: string) => void;
+  joinRoom: () => Promise<void>;
+  createRoom: () => Promise<void>;
+  loading: boolean;
+  error: string;
+}
+
+const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, joinRoom, createRoom, loading, error }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
+            <h2 className="text-lg font-semibold mb-4">Join or Create Room</h2>
+            
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Room ID (e.g., !roomid:localhost)
+                </label>
+                <input
+                  type="text"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                  placeholder="!example:localhost"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={joinRoom}
+                  disabled={loading || !roomId}
+                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+                >
+                  {loading ? 'Joining...' : 'Join Room'}
+                </button>
+                
+                <button
+                  onClick={createRoom}
+                  disabled={loading}
+                  className="flex-1 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 disabled:bg-gray-400"
+                >
+                  {loading ? 'Creating...' : 'Create Room'}
+                </button>
+              </div>
+            </div>
+      </div>
+  );
+};
+
 export default function Home() {
   const [client, setClient] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -51,6 +107,7 @@ export default function Home() {
       matrixClient.setAccessToken(loginResponse.access_token);      
       await matrixClient.startClient();
       
+
       setClient(matrixClient);
       setIsLoggedIn(true);
       
@@ -68,6 +125,7 @@ export default function Home() {
           }]);
         }
       });
+
 
     } catch (err: any) {
       setError(`Login failed: ${err.message}`);
@@ -269,48 +327,14 @@ export default function Home() {
 
       <div className="flex-1 p-4">
         {!currentRoom ? (
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
-            <h2 className="text-lg font-semibold mb-4">Join or Create Room</h2>
-            
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Room ID (e.g., !roomid:localhost)
-                </label>
-                <input
-                  type="text"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  placeholder="!example:localhost"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={joinRoom}
-                  disabled={loading || !roomId}
-                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
-                >
-                  {loading ? 'Joining...' : 'Join Room'}
-                </button>
-                
-                <button
-                  onClick={createRoom}
-                  disabled={loading}
-                  className="flex-1 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 disabled:bg-gray-400"
-                >
-                  {loading ? 'Creating...' : 'Create Room'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <JoinOrCreateRoom 
+            roomId={roomId}
+            setRoomId={setRoomId}
+            joinRoom={joinRoom}
+            createRoom={createRoom}
+            loading={loading}
+            error={error}
+          />
         ) : (
           <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
             <div className="p-4 border-b">
@@ -361,3 +385,4 @@ export default function Home() {
     </div>
   );
 }
+
