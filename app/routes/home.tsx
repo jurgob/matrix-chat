@@ -15,6 +15,7 @@ export default function Home() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [roomId, setRoomId] = useState('');
+  const [currentRoom, setCurrentRoom] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,7 +56,7 @@ export default function Home() {
       
       // Set up event listeners
       matrixClient.on(RoomEvent.Timeline, (event: any, room: any) => {
-        if (event.getType() === 'm.room.message' && room.roomId === roomId) {
+        if (event.getType() === 'm.room.message' && room.roomId === currentRoom) {
           const sender = event.getSender();
           const content = event.getContent();
           
@@ -104,6 +105,9 @@ export default function Home() {
     try {
       await client.joinRoom(roomId);
       
+      // Set the current room only after successful join
+      setCurrentRoom(roomId);
+      
       // Get room history
       const room = client.getRoom(roomId);
       if (room) {
@@ -143,6 +147,7 @@ export default function Home() {
       });
       
       setRoomId(room.room_id);
+      setCurrentRoom(room.room_id);
       
     } catch (err: any) {
       setError(`Failed to create room: ${err.message}`);
@@ -152,10 +157,10 @@ export default function Home() {
   };
 
   const sendMessage = async () => {
-    if (!client || !roomId || !newMessage.trim()) return;
+    if (!client || !currentRoom || !newMessage.trim()) return;
 
     try {
-      await client.sendTextMessage(roomId, newMessage);
+      await client.sendTextMessage(currentRoom, newMessage);
       setNewMessage('');
     } catch (err: any) {
       setError(`Failed to send message: ${err.message}`);
@@ -170,6 +175,7 @@ export default function Home() {
     setIsLoggedIn(false);
     setMessages([]);
     setRoomId('');
+    setCurrentRoom('');
     setUsername('');
     setPassword('');
   };
@@ -262,7 +268,7 @@ export default function Home() {
       </header>
 
       <div className="flex-1 p-4">
-        {!roomId ? (
+        {!currentRoom ? (
           <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
             <h2 className="text-lg font-semibold mb-4">Join or Create Room</h2>
             
@@ -308,7 +314,7 @@ export default function Home() {
         ) : (
           <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
             <div className="p-4 border-b">
-              <h2 className="font-semibold">Room: {roomId}</h2>
+              <h2 className="font-semibold">Room: {currentRoom}</h2>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
