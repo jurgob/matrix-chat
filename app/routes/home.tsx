@@ -1,13 +1,19 @@
 import type { Route } from "./+types/home";
 import { useState, useEffect, useRef } from 'react';
-import { createClient ,RoomEvent} from 'matrix-js-sdk';
-
+import { createClient ,RoomEvent, Room,ClientEvent,SyncState} from 'matrix-js-sdk';
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Matrix Chat" },
     { name: "description", content: "Minimal Matrix chat application" },
   ];
 }
+
+const ErrorMessage = ({ message }: { message: string }) => (
+  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+    {message}
+  </div>
+);
+
 
 interface JoinOrCreateRoomProps {
   roomId: string;
@@ -23,11 +29,8 @@ const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, 
     <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
             <h2 className="text-lg font-semibold mb-4">Join or Create Room</h2>
             
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
+            {error && <ErrorMessage message={error} />} 
+              
             
             <div className="space-y-4">
               <div>
@@ -76,6 +79,7 @@ export default function Home() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rooms, setRooms] = useState<Room[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -125,7 +129,17 @@ export default function Home() {
           }]);
         }
       });
-
+      matrixClient.once(ClientEvent.Sync, (state) => {
+        if (state === SyncState.Prepared) {
+          const rooms = matrixClient.getRooms(); // Now filled
+          console.log("Known rooms:", rooms.length);
+          setRooms(rooms);
+        }
+      });
+      // const _rooms = await matrixClient.getRooms();
+      // const al = await matrixClient.getJoinedRooms();
+      // console.log('Joined Rooms:', al);
+      // setRooms(_rooms);
 
     } catch (err: any) {
       setError(`Login failed: ${err.message}`);
@@ -250,11 +264,7 @@ export default function Home() {
         <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
           <h1 className="text-2xl font-bold text-center mb-6">Matrix Chat</h1>
           
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-          )}
+          {error && <ErrorMessage message={error} />}
           
           <div className="space-y-4">
             <div>
@@ -327,14 +337,35 @@ export default function Home() {
 
       <div className="flex-1 p-4">
         {!currentRoom ? (
-          <JoinOrCreateRoom 
-            roomId={roomId}
-            setRoomId={setRoomId}
-            joinRoom={joinRoom}
-            createRoom={createRoom}
-            loading={loading}
-            error={error}
-          />
+          <div>
+            <JoinOrCreateRoom 
+              roomId={roomId}
+              setRoomId={setRoomId}
+              joinRoom={joinRoom}
+              createRoom={createRoom}
+              loading={loading}
+              error={error}
+            />
+            <div className="mt-4">
+            <h2 className="text-lg font-semibold mb-2">Available Rooms ({rooms.length})</h2>
+              <ul className="space-y-2">
+                {rooms.map((room) => (
+                  <li key={room.roomId} className="flex items-center justify-between bg-gray-50 p-3 rounded-md shadow-sm">
+                    <span>{room.name || room.roomId}</span>
+                     <button
+                      onClick={() => {
+                        setRoomId(room.roomId);
+                        joinRoom();
+                      }}
+                      className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
+                    >
+                      Join
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
             <div className="p-4 border-b">
