@@ -1,0 +1,13 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "dev:app": {
+      "persistent": true,
+      "cache": false
+    },
+    "dev:docker": {
+      "persistent": true,
+      "cache": false
+    }
+  }
+}
