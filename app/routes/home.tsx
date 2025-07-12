@@ -168,20 +168,21 @@ export default function Home() {
     }
   };
 
-  const joinRoom = async () => {
-    if (!client || !roomId) return;
+  const joinRoom = async (targetRoomId?: string) => {
+    const roomToJoin = targetRoomId || roomId;
+    if (!client || !roomToJoin) return;
 
     setLoading(true);
     setError('');
 
     try {
-      await client.joinRoom(roomId);
+      await client.joinRoom(roomToJoin);
       
       // Set the current room only after successful join
-      setCurrentRoom(roomId);
+      setCurrentRoom(roomToJoin);
       
       // Get room history
-      const room = client.getRoom(roomId);
+      const room = client.getRoom(roomToJoin);
       if (room) {
         const timeline = room.getLiveTimeline();
         const events = timeline.getEvents();
@@ -353,10 +354,7 @@ export default function Home() {
                   <li key={room.roomId} className="flex items-center justify-between bg-gray-50 p-3 rounded-md shadow-sm">
                     <span>{room.name || room.roomId}</span>
                      <button
-                      onClick={() => {
-                        setRoomId(room.roomId);
-                        joinRoom();
-                      }}
+                      onClick={() => joinRoom(room.roomId)}
                       className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
                     >
                       Join
@@ -368,8 +366,18 @@ export default function Home() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
-            <div className="p-4 border-b">
+            <div className="p-4 border-b flex justify-between items-center">
               <h2 className="font-semibold">Room: {currentRoom}</h2>
+              <button
+                onClick={() => {
+                  setCurrentRoom('');
+                  setMessages([]);
+                  setRoomId('');
+                }}
+                className="bg-gray-500 text-white px-3 py-1 rounded-md hover:bg-gray-600 text-sm"
+              >
+                Leave Room
+              </button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
