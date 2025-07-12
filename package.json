@@ -8,6 +8,9 @@
     "dev": "turbo run --ui tui dev:app dev:docker",
     "dev:app": "react-router dev",
     "dev:docker": "docker compose up",
+    "deploy:build": "docker build -t my-matrix-chat .",
+    "deploy:test:run": "docker run -p 3000:3000 my-matrix-chat",
+    "deploy:test:cli": "docker exec -it $(docker ps -q -f ancestor=my-matrix-chat) sh",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc"
   },

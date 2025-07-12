@@ -22,6 +22,21 @@ npm run dev
 
 Your application will be available at `http://localhost:5173`.
 
+
+OR, you you whant to use 2 different terminl run those commandd: 
+
+terminal 1: 
+
+```bash
+npm run dev:docker
+```
+
+terminal 2: 
+
+```bash
+npm run dev:app
+```
+
 ## Building for Production
 
 Create a production build:
@@ -45,26 +60,9 @@ docker run -p 3000:3000 my-app
 
 The containerized application can be deployed to any platform that supports Docker, including:
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
 - Fly.io
 - Railway
 
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
 
 ## Styling
 
