@@ -113,6 +113,75 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
+  // Check localStorage for stored credentials on component mount
+  useEffect(() => {
+    const storedUsername = localStorage.getItem('matrix-username');
+    const storedPassword = localStorage.getItem('matrix-password');
+    
+    if (storedUsername && storedPassword) {
+      setUsername(storedUsername);
+      setPassword(storedPassword);
+      handleAutoLogin(storedUsername, storedPassword);
+    }
+  }, []);
+
+  const handleAutoLogin = async (savedUsername: string, savedPassword: string) => {
+    setLoading(true);
+    setError('');
+    const userId = `@${savedUsername}:localhost`;
+    
+    try {
+      const matrixClient = createClient({
+        baseUrl: 'http://localhost:6167',
+        userId,
+        deviceId: 'matrix-react-chat',
+      });
+
+      const loginResponse = await matrixClient.loginRequest({
+        type: 'm.login.password',
+        user: userId,
+        password: savedPassword,
+      });
+
+      matrixClient.setAccessToken(loginResponse.access_token);      
+      await matrixClient.startClient();
+      
+      setClient(matrixClient);
+      setIsLoggedIn(true);
+      
+      // Set up event listeners
+      matrixClient.on(RoomEvent.Timeline, (event: any, room: any) => {
+        if (event.getType() === 'm.room.message' && room.roomId === currentRoom) {
+          const sender = event.getSender();
+          const content = event.getContent();
+          
+          setMessages(prev => [...prev, {
+            id: event.getId(),
+            sender: sender,
+            body: content.body,
+            timestamp: new Date(event.getTs())
+          }]);
+        }
+      });
+      
+      matrixClient.once(ClientEvent.Sync, (state) => {
+        if (state === SyncState.Prepared) {
+          const rooms = matrixClient.getRooms();
+          console.log("Known rooms:", rooms.length);
+          setRooms(rooms);
+        }
+      });
+
+    } catch (err: any) {
+      setError(`Auto-login failed: ${err.message}`);
+      // Clear invalid credentials from localStorage
+      localStorage.removeItem('matrix-username');
+      localStorage.removeItem('matrix-password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogin = async () => {
     setLoading(true);
     setError('');
@@ -137,6 +206,10 @@ export default function Home() {
 
       setClient(matrixClient);
       setIsLoggedIn(true);
+      
+      // Store credentials in localStorage
+      localStorage.setItem('matrix-username', username);
+      localStorage.setItem('matrix-password', password);
       
       // Set up event listeners
       matrixClient.on(RoomEvent.Timeline, (event: any, room: any) => {
@@ -276,6 +349,10 @@ export default function Home() {
     setCurrentRoom('');
     setUsername('');
     setPassword('');
+    
+    // Clear credentials from localStorage
+    localStorage.removeItem('matrix-username');
+    localStorage.removeItem('matrix-password');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
