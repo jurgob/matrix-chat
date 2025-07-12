@@ -1,6 +1,25 @@
 import type { Route } from "./+types/home";
 import { useState, useEffect, useRef } from 'react';
+import { useFetcher } from 'react-router';
 import { createClient ,RoomEvent, Room,ClientEvent,SyncState} from 'matrix-js-sdk';
+
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+  const username = formData.get('username') as string;
+  const password = formData.get('password') as string;
+  
+  // You can add logic here to determine the matrix server based on username/password
+  // For now, return defaults or environment-based values
+  const matrixBaseUrl = process.env.MATRIX_BASE_URL || 'http://localhost:6167';
+  const matrixHomeserver = process.env.MATRIX_HOMESERVER || 'localhost';
+  
+  return {
+    success: true,
+    matrixBaseUrl,
+    matrixHomeserver,
+    message: 'Configuration retrieved successfully'
+  };
+}
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Matrix Chat" },
@@ -91,7 +110,10 @@ const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, 
 };
 
 export default function Home() {
+  const fetcher = useFetcher();
   const [client, setClient] = useState<any>(null);
+  const [matrixBaseUrl, setMatrixBaseUrl] = useState('');
+  const [matrixHomeserver, setMatrixHomeserver] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -122,18 +144,23 @@ export default function Home() {
     if (storedUsername && storedPassword) {
       setUsername(storedUsername);
       setPassword(storedPassword);
-      handleAutoLogin(storedUsername, storedPassword);
+      
+      // Use fetcher to get configuration for auto-login
+      fetcher.submit(
+        { username: storedUsername, password: storedPassword },
+        { method: 'POST' }
+      );
     }
   }, []);
 
   const handleAutoLogin = async (savedUsername: string, savedPassword: string) => {
     setLoading(true);
     setError('');
-    const userId = `@${savedUsername}:localhost`;
+    const userId = `@${savedUsername}:${matrixHomeserver}`;
     
     try {
       const matrixClient = createClient({
-        baseUrl: 'http://localhost:6167',
+        baseUrl: matrixBaseUrl,
         userId,
         deviceId: 'matrix-react-chat',
       });
@@ -219,10 +246,40 @@ export default function Home() {
   const handleLogin = async () => {
     setLoading(true);
     setError('');
-    const userId = `@${username}:localhost`;
+    
+    // Use fetcher to get matrix configuration from server action
+    fetcher.submit(
+      { username, password },
+      { method: 'POST' }
+    );
+  };
+
+  // Handle fetcher response
+  useEffect(() => {
+    if (fetcher.data && fetcher.state === 'idle') {
+      const result = fetcher.data;
+      
+      if (result.success) {
+        setMatrixBaseUrl(result.matrixBaseUrl);
+        setMatrixHomeserver(result.matrixHomeserver);
+        
+        // Now proceed with login using the retrieved configuration
+        const userId = `@${username}:${result.matrixHomeserver}`;
+        performLogin(userId, password, result.matrixBaseUrl);
+      } else {
+        setError(result.message || 'Failed to get configuration');
+        // Clear credentials on auto-login failure
+        localStorage.removeItem('matrix-username');
+        localStorage.removeItem('matrix-password');
+        setLoading(false);
+      }
+    }
+  }, [fetcher.data, fetcher.state, username, password]);
+
+  const performLogin = async (userId: string, userPassword: string, baseUrl: string) => {
     try {
       const matrixClient = createClient({
-        baseUrl: 'http://localhost:6167',
+        baseUrl: baseUrl,
         userId,
         deviceId: 'matrix-react-chat',
       });
@@ -317,7 +374,7 @@ export default function Home() {
 
     try {
       const matrixClient = createClient({
-        baseUrl: 'http://localhost:6167',
+        baseUrl: matrixBaseUrl,
       });
 
       await matrixClient.register(username, password, null, { type: 'm.login.dummy' });
