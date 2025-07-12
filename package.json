@@ -11,6 +11,8 @@
     "deploy:build": "docker build -t my-matrix-chat .",
     "deploy:test:run": "docker run -p 3000:3000 my-matrix-chat",
     "deploy:test:cli": "docker exec -it $(docker ps -q -f ancestor=my-matrix-chat) sh",
+    "deploy": "fly deploy",
+    "deploy:matrixserver": "fly deploy -c fly-matrix.toml",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc"
   },
