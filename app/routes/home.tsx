@@ -509,9 +509,11 @@ export default function Home() {
     setUsername('');
     setPassword('');
     
-    // Clear credentials from localStorage
-    localStorage.removeItem('matrix-username');
-    localStorage.removeItem('matrix-password');
+    // Clear all localStorage
+    localStorage.clear();
+    
+    // Force browser reload
+    window.location.reload();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
