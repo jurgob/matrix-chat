@@ -1,6 +1,11 @@
 # Matrix chat example
 
-## Getting Started
+## demo
+
+go to this url: 
+
+
+## Contributing
 
 ### Installation
 
@@ -11,7 +16,6 @@ npm install
 ```
 
 ### Development
-
 
 
 Start the development server with HMR:
@@ -37,6 +41,13 @@ terminal 2:
 npm run dev:app
 ```
 
+#### Check types
+
+```bash
+npm run typecheck
+```
+
+
 ## Building for Production
 
 Create a production build:
@@ -47,22 +58,19 @@ npm run build
 
 ## Deployment
 
-### Docker Deployment
+This app is hosted by fly.io 
 
-To build and run using Docker:
+deploy the matrix server
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+npm run deploy:matrixserver
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+deploy app: 
 
-- Fly.io
-- Railway
-
+```bash
+npm run deploy
+```
 
 ## Styling
 

@@ -7,6 +7,7 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
+  const action = formData.get('action') as string;
   
   // You can add logic here to determine the matrix server based on username/password
   // For now, return defaults or environment-based values
@@ -17,6 +18,7 @@ export async function action({ request }: Route.ActionArgs) {
     success: true,
     matrixBaseUrl,
     matrixHomeserver,
+    action: action || 'login',
     message: 'Configuration retrieved successfully'
   };
 }
@@ -263,9 +265,14 @@ export default function Home() {
         setMatrixBaseUrl(result.matrixBaseUrl);
         setMatrixHomeserver(result.matrixHomeserver);
         
-        // Now proceed with login using the retrieved configuration
-        const userId = `@${username}:${result.matrixHomeserver}`;
-        performLogin(userId, password, result.matrixBaseUrl);
+        if (result.action === 'register') {
+          // Proceed with registration
+          performRegistration(username, password, result.matrixBaseUrl, result.matrixHomeserver);
+        } else {
+          // Proceed with login using the retrieved configuration
+          const userId = `@${username}:${result.matrixHomeserver}`;
+          performLogin(userId, password, result.matrixBaseUrl);
+        }
       } else {
         setError(result.message || 'Failed to get configuration');
         // Clear credentials on auto-login failure
@@ -275,6 +282,24 @@ export default function Home() {
       }
     }
   }, [fetcher.data, fetcher.state, username, password]);
+
+  const performRegistration = async (user: string, pass: string, baseUrl: string, homeserver: string) => {
+    try {
+      const matrixClient = createClient({
+        baseUrl: baseUrl,
+      });
+
+      await matrixClient.register(user, pass, null, { type: 'm.login.dummy' });
+      
+      // After successful registration, perform login
+      const userId = `@${user}:${homeserver}`;
+      await performLogin(userId, pass, baseUrl);
+      
+    } catch (err: any) {
+      setError(`Registration failed: ${err.message}`);
+      setLoading(false);
+    }
+  };
 
   const performLogin = async (userId: string, userPassword: string, baseUrl: string) => {
     try {
@@ -372,20 +397,11 @@ export default function Home() {
     setLoading(true);
     setError('');
 
-    try {
-      const matrixClient = createClient({
-        baseUrl: matrixBaseUrl,
-      });
-
-      await matrixClient.register(username, password, null, { type: 'm.login.dummy' });
-      
-      // After successful registration, login
-      await handleLogin();
-      
-    } catch (err: any) {
-      setError(`Registration failed: ${err.message}`);
-      setLoading(false);
-    }
+    // First, get the matrix configuration from the server, then register
+    fetcher.submit(
+      { username, password, action: 'register' },
+      { method: 'POST' }
+    );
   };
 
   const joinRoom = async (targetRoomId?: string) => {
