@@ -18,50 +18,72 @@ const ErrorMessage = ({ message }: { message: string }) => (
 interface JoinOrCreateRoomProps {
   roomId: string;
   setRoomId: (roomId: string) => void;
+  roomName: string;
+  setRoomName: (roomName: string) => void;
   joinRoom: () => Promise<void>;
   createRoom: () => Promise<void>;
   loading: boolean;
   error: string;
 }
 
-const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, joinRoom, createRoom, loading, error }) => {
+const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, roomName, setRoomName, joinRoom, createRoom, loading, error }) => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
-            <h2 className="text-lg font-semibold mb-4">Join or Create Room</h2>
+            <h2 className="text-lg font-semibold mb-6">Join or Create Room</h2>
             
             {error && <ErrorMessage message={error} />} 
               
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Room ID (e.g., !roomid:localhost)
-                </label>
-                <input
-                  type="text"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  placeholder="!example:localhost"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            <div className="space-y-6">
+              {/* Join Room Form */}
+              <div className="border rounded-lg p-4">
+                <h3 className="text-md font-medium mb-3">Join Existing Room</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Room ID (e.g., !roomid:localhost)
+                    </label>
+                    <input
+                      type="text"
+                      value={roomId}
+                      onChange={(e) => setRoomId(e.target.value)}
+                      placeholder="!example:localhost"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    onClick={joinRoom}
+                    disabled={loading || !roomId}
+                    className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+                  >
+                    {loading ? 'Joining...' : 'Join Room'}
+                  </button>
+                </div>
               </div>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={joinRoom}
-                  disabled={loading || !roomId}
-                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
-                >
-                  {loading ? 'Joining...' : 'Join Room'}
-                </button>
-                
-                <button
-                  onClick={createRoom}
-                  disabled={loading}
-                  className="flex-1 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 disabled:bg-gray-400"
-                >
-                  {loading ? 'Creating...' : 'Create Room'}
-                </button>
+
+              {/* Create Room Form */}
+              <div className="border rounded-lg p-4">
+                <h3 className="text-md font-medium mb-3">Create New Room</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Room Name
+                    </label>
+                    <input
+                      type="text"
+                      value={roomName}
+                      onChange={(e) => setRoomName(e.target.value)}
+                      placeholder="Enter room name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  <button
+                    onClick={createRoom}
+                    disabled={loading || !roomName}
+                    className="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 disabled:bg-gray-400"
+                  >
+                    {loading ? 'Creating...' : 'Create Room'}
+                  </button>
+                </div>
               </div>
             </div>
       </div>
@@ -74,6 +96,7 @@ export default function Home() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [roomId, setRoomId] = useState('');
+  const [roomName, setRoomName] = useState('');
   const [currentRoom, setCurrentRoom] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -207,20 +230,21 @@ export default function Home() {
   };
 
   const createRoom = async () => {
-    if (!client) return;
+    if (!client || !roomName.trim()) return;
 
     setLoading(true);
     setError('');
 
     try {
       const room = await client.createRoom({
-        name: 'My Chat Room',
+        name: roomName,
         visibility: 'public',
         preset: 'public_chat',
       });
       
       setRoomId(room.room_id);
       setCurrentRoom(room.room_id);
+      setRoomName('');
       
     } catch (err: any) {
       setError(`Failed to create room: ${err.message}`);
@@ -248,6 +272,7 @@ export default function Home() {
     setIsLoggedIn(false);
     setMessages([]);
     setRoomId('');
+    setRoomName('');
     setCurrentRoom('');
     setUsername('');
     setPassword('');
@@ -342,6 +367,8 @@ export default function Home() {
             <JoinOrCreateRoom 
               roomId={roomId}
               setRoomId={setRoomId}
+              roomName={roomName}
+              setRoomName={setRoomName}
               joinRoom={joinRoom}
               createRoom={createRoom}
               loading={loading}
