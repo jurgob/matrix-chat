@@ -31,7 +31,7 @@ if [ -z "$DIFF" ]; then
 fi
 GITSTATUS=$(git status --porcelain)
 # Show the diff to the user
-echo "Changes to commit:"
+echo "File Changes to commit:"
 echo "---"
 echo "$GITSTATUS"
 echo "---"
