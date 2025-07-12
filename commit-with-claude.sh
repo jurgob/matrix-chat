@@ -39,7 +39,7 @@ TEMP_FILE=$(mktemp)
 echo "$COMMIT_MSG" > "$TEMP_FILE"
 
 # Open editor for user to edit the commit message
-${EDITOR:-nano} "$TEMP_FILE"
+${EDITOR:-vi} "$TEMP_FILE"
 
 # Read the final commit message
 FINAL_MSG=$(cat "$TEMP_FILE")
