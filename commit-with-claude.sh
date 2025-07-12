@@ -29,6 +29,21 @@ if [ -z "$DIFF" ]; then
     echo "No changes found"
     exit 0
 fi
+GITSTATUS=$(git status --porcelain)
+# Show the diff to the user
+echo "Changes to commit:"
+echo "---"
+echo "$GITSTATUS"
+echo "---"
+
+# Ask the user if it's okay to continue
+read -p "Okay to continue and generate commit message? (y/n) " -n 1 -r
+echo    # (optional) move to a new line
+if [[ ! "$REPLY" =~ ^[Yy]$ ]]
+then
+    echo "Aborting."
+    exit 1
+fi
 
 # Generate commit message using Claude CLI
 echo "Generating commit message with Claude..."
