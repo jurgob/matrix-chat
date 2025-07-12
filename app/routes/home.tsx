@@ -99,6 +99,7 @@ export default function Home() {
   const [roomName, setRoomName] = useState('');
   const [currentRoom, setCurrentRoom] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
+  const [allMessages, setAllMessages] = useState<{[roomId: string]: any[]}>({});
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -151,16 +152,49 @@ export default function Home() {
       
       // Set up event listeners
       matrixClient.on(RoomEvent.Timeline, (event: any, room: any) => {
-        if (event.getType() === 'm.room.message' && room.roomId === currentRoom) {
+        if (event.getType() === 'm.room.message') {
+          const eventId = event.getId();
           const sender = event.getSender();
           const content = event.getContent();
+          const roomId = room.roomId;
           
-          setMessages(prev => [...prev, {
-            id: event.getId(),
+          const newMessage = {
+            id: eventId,
             sender: sender,
             body: content.body,
             timestamp: new Date(event.getTs())
-          }]);
+          };
+          
+          // Store message in allMessages by room
+          setAllMessages(prev => {
+            const roomMessages = prev[roomId] || [];
+            // Check if message already exists to avoid duplicates
+            if (roomMessages.some(msg => msg.id === eventId)) {
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              [roomId]: [...roomMessages, newMessage]
+            };
+          });
+          
+          // Update current room messages if this event is for the current room
+          setCurrentRoom(prevRoom => {
+            if (prevRoom === roomId) {
+              setMessages(prev => {
+                // Check if message already exists to avoid duplicates
+                if (prev.some(msg => msg.id === eventId)) {
+                  return prev;
+                }
+                const updated = [...prev, newMessage];
+                // Scroll to bottom when new message arrives in current room
+                setTimeout(() => scrollToBottom(), 100);
+                return updated;
+              });
+            }
+            return prevRoom;
+          });
         }
       });
       
@@ -213,16 +247,49 @@ export default function Home() {
       
       // Set up event listeners
       matrixClient.on(RoomEvent.Timeline, (event: any, room: any) => {
-        if (event.getType() === 'm.room.message' && room.roomId === currentRoom) {
+        if (event.getType() === 'm.room.message') {
+          const eventId = event.getId();
           const sender = event.getSender();
           const content = event.getContent();
+          const roomId = room.roomId;
           
-          setMessages(prev => [...prev, {
-            id: event.getId(),
+          const newMessage = {
+            id: eventId,
             sender: sender,
             body: content.body,
             timestamp: new Date(event.getTs())
-          }]);
+          };
+          
+          // Store message in allMessages by room
+          setAllMessages(prev => {
+            const roomMessages = prev[roomId] || [];
+            // Check if message already exists to avoid duplicates
+            if (roomMessages.some(msg => msg.id === eventId)) {
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              [roomId]: [...roomMessages, newMessage]
+            };
+          });
+          
+          // Update current room messages if this event is for the current room
+          setCurrentRoom(prevRoom => {
+            if (prevRoom === roomId) {
+              setMessages(prev => {
+                // Check if message already exists to avoid duplicates
+                if (prev.some(msg => msg.id === eventId)) {
+                  return prev;
+                }
+                const updated = [...prev, newMessage];
+                // Scroll to bottom when new message arrives in current room
+                setTimeout(() => scrollToBottom(), 100);
+                return updated;
+              });
+            }
+            return prevRoom;
+          });
         }
       });
       matrixClient.once(ClientEvent.Sync, (state) => {
@@ -277,23 +344,37 @@ export default function Home() {
       // Set the current room only after successful join
       setCurrentRoom(roomToJoin);
       
-      // Get room history
-      const room = client.getRoom(roomToJoin);
-      if (room) {
-        const timeline = room.getLiveTimeline();
-        const events = timeline.getEvents();
-        
-        const roomMessages = events
-          .filter((event: any) => event.getType() === 'm.room.message')
-          .map((event: any) => ({
-            id: event.getId(),
-            sender: event.getSender(),
-            body: event.getContent().body,
-            timestamp: new Date(event.getTs())
-          }));
-        
-        setMessages(roomMessages);
-      }
+      // Load messages from allMessages state if available, otherwise get room history
+      setAllMessages(prev => {
+        if (prev[roomToJoin]) {
+          setMessages(prev[roomToJoin]);
+          return prev;
+        } else {
+          // Get room history for first time joining
+          const room = client.getRoom(roomToJoin);
+          if (room) {
+            const timeline = room.getLiveTimeline();
+            const events = timeline.getEvents();
+            
+            const roomMessages = events
+              .filter((event: any) => event.getType() === 'm.room.message')
+              .map((event: any) => ({
+                id: event.getId(),
+                sender: event.getSender(),
+                body: event.getContent().body,
+                timestamp: new Date(event.getTs())
+              }));
+            
+            setMessages(roomMessages);
+            return {
+              ...prev,
+              [roomToJoin]: roomMessages
+            };
+          }
+          setMessages([]);
+          return prev;
+        }
+      });
       
     } catch (err: any) {
       setError(`Failed to join room: ${err.message}`);
@@ -329,11 +410,15 @@ export default function Home() {
   const sendMessage = async () => {
     if (!client || !currentRoom || !newMessage.trim()) return;
 
+    const messageText = newMessage;
+    setNewMessage('');
+
     try {
-      await client.sendTextMessage(currentRoom, newMessage);
-      setNewMessage('');
+      const response = await client.sendTextMessage(currentRoom, messageText);
     } catch (err: any) {
       setError(`Failed to send message: ${err.message}`);
+      // Restore the message text on error
+      setNewMessage(messageText);
     }
   };
 
@@ -344,6 +429,7 @@ export default function Home() {
     setClient(null);
     setIsLoggedIn(false);
     setMessages([]);
+    setAllMessages({});
     setRoomId('');
     setRoomName('');
     setCurrentRoom('');
@@ -477,6 +563,7 @@ export default function Home() {
                   setCurrentRoom('');
                   setMessages([]);
                   setRoomId('');
+                  setRoomName('');
                 }}
                 className="bg-gray-500 text-white px-3 py-1 rounded-md hover:bg-gray-600 text-sm"
               >
