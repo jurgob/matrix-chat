@@ -73,7 +73,7 @@ const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, 
                     />
                   </div>
                   <button
-                    onClick={() => handleJoinRoom()}
+                    onClick={() => joinRoom()}
                     disabled={loading || !roomId}
                     className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
                   >
