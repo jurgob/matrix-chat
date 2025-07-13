@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { createClient, MatrixClient, RoomEvent, Room, ClientEvent, SyncState } from 'matrix-js-sdk';
+import { createClient, MatrixClient, RoomEvent, Room, ClientEvent, SyncState ,Visibility, Preset} from 'matrix-js-sdk';
 
 interface Message {
   id: string;
@@ -8,13 +8,18 @@ interface Message {
   timestamp: Date;
 }
 
+interface CurrentRoom {
+  id: string;
+  name: string;
+}
+
 interface MatrixContextType {
   client: MatrixClient | null;
   isLoggedIn: boolean;
   loading: boolean;
   error: string;
   rooms: Room[];
-  currentRoom: string;
+  currentRoom: CurrentRoom | null;
   messages: Message[];
   allMessages: {[roomId: string]: Message[]};
   login: (username: string, password: string, matrixBaseUrl: string, matrixHomeserver: string) => Promise<void>;
@@ -49,7 +54,7 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [currentRoom, setCurrentRoomState] = useState('');
+  const [currentRoom, setCurrentRoomState] = useState<CurrentRoom | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [allMessages, setAllMessages] = useState<{[roomId: string]: Message[]}>({});
 
@@ -118,7 +123,7 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
           
           // Update current room messages if this event is for the current room
           setCurrentRoomState(prevRoom => {
-            if (prevRoom === roomId) {
+            if (prevRoom?.id === roomId) {
               setMessages(prev => {
                 // Check if message already exists to avoid duplicates
                 if (prev.some(msg => msg.id === eventId)) {
@@ -172,7 +177,7 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
     setRooms([]);
     setError('');
     setLoading(false);
-    setCurrentRoomState('');
+    setCurrentRoomState(null);
     setMessages([]);
     setAllMessages({});
     
@@ -190,7 +195,13 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
       await client.joinRoom(roomId);
       
       // Set the current room only after successful join
-      setCurrentRoomState(roomId);
+      const room = rooms.find(r => r.roomId === roomId);
+      if (room) {
+        setCurrentRoomState({
+          id: roomId,
+          name: room.name || roomId
+        });
+      }
       
       // Load messages from allMessages state if available, otherwise get room history
       if (allMessages[roomId]) {
@@ -237,11 +248,14 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
     try {
       const room = await client.createRoom({
         name: roomName,
-        visibility: 'public',
-        preset: 'public_chat',
+        visibility: Visibility.Public,
+        preset: Preset.PublicChat,
       });
       
-      setCurrentRoomState(room.room_id);
+      setCurrentRoomState({
+        id: room.room_id,
+        name: roomName
+      });
       setMessages([]);
       
     } catch (err: any) {
@@ -255,25 +269,31 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
     if (!client || !currentRoom || !messageText.trim()) return;
 
     try {
-      await client.sendTextMessage(currentRoom, messageText);
+      await client.sendTextMessage(currentRoom.id, messageText);
     } catch (err: any) {
       setError(`Failed to send message: ${err.message}`);
     }
   }, [client, currentRoom]);
 
   const setCurrentRoom = useCallback((roomId: string) => {
-    setCurrentRoomState(roomId);
-    
-    // Load messages for the room
-    if (allMessages[roomId]) {
-      setMessages(allMessages[roomId]);
-    } else {
-      setMessages([]);
+    const room = rooms.find(r => r.roomId === roomId);
+    if (room) {
+      setCurrentRoomState({
+        id: roomId,
+        name: room.name || roomId
+      });
+      
+      // Load messages for the room
+      if (allMessages[roomId]) {
+        setMessages(allMessages[roomId]);
+      } else {
+        setMessages([]);
+      }
     }
-  }, [allMessages]);
+  }, [allMessages, rooms]);
 
   const leaveCurrentRoom = useCallback(() => {
-    setCurrentRoomState('');
+    setCurrentRoomState(null);
     setMessages([]);
   }, []);
 

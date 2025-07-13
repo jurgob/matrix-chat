@@ -87,10 +87,11 @@ const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, 
                 <h3 className="text-md font-medium mb-3">Create New Room</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="roomName" className="block text-sm font-medium text-gray-700 mb-1">
                       Room Name
                     </label>
                     <input
+                      id="roomName"
                       type="text"
                       value={roomName}
                       onChange={(e) => setRoomName(e.target.value)}
@@ -272,10 +273,11 @@ export default function Home() {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                 Username
               </label>
               <input
+                id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -285,10 +287,11 @@ export default function Home() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -367,7 +370,7 @@ export default function Home() {
         ) : (
           <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
             <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="font-semibold">Room: {currentRoom}</h2>
+              <h2 className="font-semibold">Room: {currentRoom?.name}</h2>
               <button
                 onClick={() => {
                   leaveCurrentRoom();
@@ -402,10 +405,12 @@ export default function Home() {
             <div className="p-4 border-t">
               <div className="flex space-x-2">
                 <input
+                  id="messageInput"
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type a message..."
+                  aria-label="Message"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onKeyPress={handleKeyPress}
                 />

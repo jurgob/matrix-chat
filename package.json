@@ -14,7 +14,8 @@
     "deploy": "fly deploy",
     "deploy:matrixserver": "fly deploy -c fly-matrix.toml",
     "start": "react-router-serve ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc"
+    "typecheck": "react-router typegen && tsc",
+    "test": "node --env-file=.env node_modules/.bin/playwright test --project=chromium"
   },
   "dependencies": {
     "@react-router/node": "^7.5.3",
@@ -26,6 +27,7 @@
     "react-router": "^7.5.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.1",
     "@react-router/dev": "^7.5.3",
     "@tailwindcss/vite": "^4.1.4",
     "@types/node": "^20",

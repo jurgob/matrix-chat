@@ -1,0 +1,58 @@
+import { test, expect } from '@playwright/test';
+import { randomUUID } from 'crypto';
+test.beforeEach(async ({ page }, testInfo) => {
+  // Extend timeout for all tests running this hook by 30 seconds.
+  testInfo.setTimeout(20000);
+});
+
+test('Complete user flow', async ({ page }) => {
+  const uuid = randomUUID();
+  const testUser = `test_user_${uuid}`;
+  const testChat = `test_chat_${uuid}`;
+  const testMessage = `Hello from ${testUser}!`;
+  
+  await test.step('Navigate to application', async () => {
+    const baseUrl = process.env.APP_BASE_URL;
+    expect(baseUrl).toBeDefined();
+    await page.goto(baseUrl!);
+  });
+
+  await test.step('Register new user', async () => {
+    await page.getByLabel('Username').fill(testUser);
+    await page.getByLabel('Password').fill('testpassword123');
+    await page.getByRole('button', { name: /register/i }).click();
+  });
+
+   await test.step('Exit chat and logout', async () => {
+    await page.getByRole('button', { name: /logout/i }).click();
+  });
+
+  await test.step('Login with created user', async () => {
+    await page.getByLabel('Username').fill(testUser);
+    await page.getByLabel('Password').fill('testpassword123');
+    await page.getByRole('button', { name: /login/i }).click();
+  });
+
+  await test.step('Create new chat', async () => {
+    await page.getByLabel('Room Name').fill(testChat);
+    await page.getByRole('button', { name: /create room/i }).click();
+    await expect(page.getByText(testChat)).toBeVisible();
+  });
+
+  await test.step('Join the new chat', async () => {
+    await page.getByText(testChat).click();
+  });
+
+   await test.step('Load the new chat and send message', async () => {
+    await expect(page.getByText(`Room: ${testChat}`)).toBeVisible();
+    // await page.getByRole('button', { name: 'Join', exact: true }).click();
+    await page.getByLabel(/message/i).fill(testMessage);
+    await page.getByRole('button', { name: /send/i }).click();
+    await expect(page.getByText(testMessage)).toBeVisible();
+  });
+
+  await test.step('Exit chat and logout', async () => {
+    await page.getByRole('button', { name: /leave.*room/i }).click();
+    await page.getByRole('button', { name: /logout/i }).click();
+  });
+});
