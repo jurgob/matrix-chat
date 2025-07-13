@@ -315,11 +315,6 @@ export default function Home() {
               </button>
             </div>
           </div>
-          
-          <div className="mt-4 text-sm text-gray-600">
-            <p>Make sure Conduit is running on localhost:6167</p>
-            <p>Use <code>docker-compose up</code> to start the server</p>
-          </div>
         </div>
       </div>
     );
