@@ -1,7 +1,8 @@
 import type { Route } from "./+types/home";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFetcher } from 'react-router';
-import { createClient ,RoomEvent, Room,ClientEvent,SyncState} from 'matrix-js-sdk';
+import { RoomEvent, Room } from 'matrix-js-sdk';
+import { useMatrix } from '../contexts/MatrixContext';
 
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
@@ -72,7 +73,7 @@ const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, 
                     />
                   </div>
                   <button
-                    onClick={() => joinRoom()}
+                    onClick={() => handleJoinRoom()}
                     disabled={loading || !roomId}
                     className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
                   >
@@ -113,30 +114,42 @@ const JoinOrCreateRoom: React.FC<JoinOrCreateRoomProps> = ({ roomId, setRoomId, 
 
 export default function Home() {
   const fetcher = useFetcher();
-  const [client, setClient] = useState<any>(null);
+  const { 
+    client, 
+    isLoggedIn, 
+    loading, 
+    error, 
+    rooms, 
+    currentRoom, 
+    messages, 
+    login, 
+    register, 
+    logout, 
+    setError, 
+    setLoading, 
+    joinRoom, 
+    createRoom, 
+    sendMessage, 
+    setCurrentRoom, 
+    leaveCurrentRoom 
+  } = useMatrix();
   const [matrixBaseUrl, setMatrixBaseUrl] = useState('');
   const [matrixHomeserver, setMatrixHomeserver] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [roomId, setRoomId] = useState('');
   const [roomName, setRoomName] = useState('');
-  const [currentRoom, setCurrentRoom] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
-  const [allMessages, setAllMessages] = useState<{[roomId: string]: any[]}>({});
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [rooms, setRooms] = useState<Room[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
 
+  // Auto-scroll when messages change
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    setTimeout(() => scrollToBottom(), 100);
+  }, [messages, scrollToBottom]);
 
   // Check localStorage for stored credentials on component mount
   useEffect(() => {
@@ -176,13 +189,16 @@ export default function Home() {
         setMatrixBaseUrl(result.matrixBaseUrl);
         setMatrixHomeserver(result.matrixHomeserver);
         
+        // Store credentials in localStorage
+        localStorage.setItem('matrix-username', username);
+        localStorage.setItem('matrix-password', password);
+        
         if (result.action === 'register') {
-          // Proceed with registration
-          performRegistration(username, password, result.matrixBaseUrl, result.matrixHomeserver);
+          // Proceed with registration using context
+          register(username, password, result.matrixBaseUrl, result.matrixHomeserver);
         } else {
-          // Proceed with login using the retrieved configuration
-          const userId = `@${username}:${result.matrixHomeserver}`;
-          performLogin(userId, password, result.matrixBaseUrl);
+          // Proceed with login using context
+          login(username, password, result.matrixBaseUrl, result.matrixHomeserver);
         }
       } else {
         setError(result.message || 'Failed to get configuration');
@@ -192,117 +208,8 @@ export default function Home() {
         setLoading(false);
       }
     }
-  }, [fetcher.data, fetcher.state, username, password]);
+  }, [fetcher.data, fetcher.state, username, password, login, register, setError, setLoading]);
 
-  const performRegistration = async (user: string, pass: string, baseUrl: string, homeserver: string) => {
-    try {
-      const matrixClient = createClient({
-        baseUrl: baseUrl,
-      });
-
-      await matrixClient.register(user, pass, null, { type: 'm.login.dummy' });
-      
-      // After successful registration, perform login
-      const userId = `@${user}:${homeserver}`;
-      await performLogin(userId, pass, baseUrl);
-      
-    } catch (err: any) {
-      setError(`Registration failed: ${err.message}`);
-      setLoading(false);
-    }
-  };
-
-  const performLogin = async (userId: string, userPassword: string, baseUrl: string) => {
-    try {
-      const matrixClient = createClient({
-        baseUrl: baseUrl,
-        userId,
-        deviceId: 'matrix-react-chat',
-      });
-
-      const loginResponse = await matrixClient.loginRequest({
-        type: 'm.login.password',
-        user: userId,
-        password: password,
-      });
-
-
-      matrixClient.setAccessToken(loginResponse.access_token);      
-      await matrixClient.startClient();
-      
-
-      setClient(matrixClient);
-      setIsLoggedIn(true);
-      
-      // Store credentials in localStorage
-      localStorage.setItem('matrix-username', username);
-      localStorage.setItem('matrix-password', password);
-      
-      // Set up event listeners
-      matrixClient.on(RoomEvent.Timeline, (event: any, room: any) => {
-        if (event.getType() === 'm.room.message') {
-          const eventId = event.getId();
-          const sender = event.getSender();
-          const content = event.getContent();
-          const roomId = room.roomId;
-          
-          const newMessage = {
-            id: eventId,
-            sender: sender,
-            body: content.body,
-            timestamp: new Date(event.getTs())
-          };
-          
-          // Store message in allMessages by room
-          setAllMessages(prev => {
-            const roomMessages = prev[roomId] || [];
-            // Check if message already exists to avoid duplicates
-            if (roomMessages.some(msg => msg.id === eventId)) {
-              return prev;
-            }
-            
-            return {
-              ...prev,
-              [roomId]: [...roomMessages, newMessage]
-            };
-          });
-          
-          // Update current room messages if this event is for the current room
-          setCurrentRoom(prevRoom => {
-            if (prevRoom === roomId) {
-              setMessages(prev => {
-                // Check if message already exists to avoid duplicates
-                if (prev.some(msg => msg.id === eventId)) {
-                  return prev;
-                }
-                const updated = [...prev, newMessage];
-                // Scroll to bottom when new message arrives in current room
-                setTimeout(() => scrollToBottom(), 100);
-                return updated;
-              });
-            }
-            return prevRoom;
-          });
-        }
-      });
-      matrixClient.once(ClientEvent.Sync, (state) => {
-        if (state === SyncState.Prepared) {
-          const rooms = matrixClient.getRooms(); // Now filled
-          console.log("Known rooms:", rooms.length);
-          setRooms(rooms);
-        }
-      });
-      // const _rooms = await matrixClient.getRooms();
-      // const al = await matrixClient.getJoinedRooms();
-      // console.log('Joined Rooms:', al);
-      // setRooms(_rooms);
-
-    } catch (err: any) {
-      setError(`Login failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRegister = async () => {
     setLoading(true);
@@ -315,121 +222,43 @@ export default function Home() {
     );
   };
 
-  const joinRoom = async (targetRoomId?: string) => {
+  const handleJoinRoom = async (targetRoomId?: string) => {
     const roomToJoin = targetRoomId || roomId;
-    if (!client || !roomToJoin) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      await client.joinRoom(roomToJoin);
-      
-      // Set the current room only after successful join
-      setCurrentRoom(roomToJoin);
-      
-      // Load messages from allMessages state if available, otherwise get room history
-      setAllMessages(prev => {
-        if (prev[roomToJoin]) {
-          setMessages(prev[roomToJoin]);
-          return prev;
-        } else {
-          // Get room history for first time joining
-          const room = client.getRoom(roomToJoin);
-          if (room) {
-            const timeline = room.getLiveTimeline();
-            const events = timeline.getEvents();
-            
-            const roomMessages = events
-              .filter((event: any) => event.getType() === 'm.room.message')
-              .map((event: any) => ({
-                id: event.getId(),
-                sender: event.getSender(),
-                body: event.getContent().body,
-                timestamp: new Date(event.getTs())
-              }));
-            
-            setMessages(roomMessages);
-            return {
-              ...prev,
-              [roomToJoin]: roomMessages
-            };
-          }
-          setMessages([]);
-          return prev;
-        }
-      });
-      
-    } catch (err: any) {
-      setError(`Failed to join room: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    if (!roomToJoin) return;
+    await joinRoom(roomToJoin);
   };
 
-  const createRoom = async () => {
-    if (!client || !roomName.trim()) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const room = await client.createRoom({
-        name: roomName,
-        visibility: 'public',
-        preset: 'public_chat',
-      });
-      
-      setRoomId(room.room_id);
-      setCurrentRoom(room.room_id);
-      setRoomName('');
-      
-    } catch (err: any) {
-      setError(`Failed to create room: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleCreateRoom = async () => {
+    if (!roomName.trim()) return;
+    await createRoom(roomName);
+    setRoomName('');
   };
 
-  const sendMessage = async () => {
-    if (!client || !currentRoom || !newMessage.trim()) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
 
     const messageText = newMessage;
     setNewMessage('');
 
     try {
-      const response = await client.sendTextMessage(currentRoom, messageText);
+      await sendMessage(messageText);
     } catch (err: any) {
-      setError(`Failed to send message: ${err.message}`);
       // Restore the message text on error
       setNewMessage(messageText);
     }
   };
 
-  const logout = () => {
-    if (client) {
-      client.stopClient();
-    }
-    setClient(null);
-    setIsLoggedIn(false);
-    setMessages([]);
-    setAllMessages({});
+  const handleLogout = () => {
     setRoomId('');
     setRoomName('');
-    setCurrentRoom('');
     setUsername('');
     setPassword('');
-    
-    // Clear all localStorage
-    localStorage.clear();
-    
-    // Force browser reload
-    window.location.reload();
+    logout();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      sendMessage();
+      handleSendMessage();
     }
   };
 
@@ -502,7 +331,7 @@ export default function Home() {
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-bold">Matrix Chat</h1>
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
           >
             Logout
@@ -518,8 +347,8 @@ export default function Home() {
               setRoomId={setRoomId}
               roomName={roomName}
               setRoomName={setRoomName}
-              joinRoom={joinRoom}
-              createRoom={createRoom}
+              joinRoom={handleJoinRoom}
+              createRoom={handleCreateRoom}
               loading={loading}
               error={error}
             />
@@ -530,7 +359,7 @@ export default function Home() {
                   <li key={room.roomId} className="flex items-center justify-between bg-gray-50 p-3 rounded-md shadow-sm">
                     <span>{room.name || room.roomId}</span>
                      <button
-                      onClick={() => joinRoom(room.roomId)}
+                      onClick={() => handleJoinRoom(room.roomId)}
                       className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
                     >
                       Join
@@ -546,8 +375,7 @@ export default function Home() {
               <h2 className="font-semibold">Room: {currentRoom}</h2>
               <button
                 onClick={() => {
-                  setCurrentRoom('');
-                  setMessages([]);
+                  leaveCurrentRoom();
                   setRoomId('');
                   setRoomName('');
                 }}
@@ -587,7 +415,7 @@ export default function Home() {
                   onKeyPress={handleKeyPress}
                 />
                 <button
-                  onClick={sendMessage}
+                  onClick={handleSendMessage}
                   disabled={!newMessage.trim()}
                   className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
                 >
