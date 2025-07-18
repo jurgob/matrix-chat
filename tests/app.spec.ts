@@ -24,7 +24,7 @@ test('Complete user flow', async ({ page }) => {
   });
 
    await test.step('Exit chat and logout', async () => {
-    await page.getByRole('button', { name: /logout/i }).click();
+    await page.getByRole('link', { name: /logout/i }).click();
   });
 
   await test.step('Login with created user', async () => {
@@ -53,6 +53,6 @@ test('Complete user flow', async ({ page }) => {
 
   await test.step('Exit chat and logout', async () => {
     await page.getByRole('button', { name: /leave.*room/i }).click();
-    await page.getByRole('button', { name: /logout/i }).click();
+    await page.getByRole('link', { name: /logout/i }).click();
   });
 });

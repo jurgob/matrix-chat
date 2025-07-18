@@ -5,6 +5,7 @@
 /.react-router/
 /build/
 conduit-data/
+continuwuity-data/
 
 # Playwright
 node_modules/

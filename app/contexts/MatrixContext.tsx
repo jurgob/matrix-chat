@@ -22,8 +22,7 @@ interface MatrixContextType {
   currentRoom: CurrentRoom | null;
   messages: Message[];
   allMessages: {[roomId: string]: Message[]};
-  login: (username: string, password: string, matrixBaseUrl: string, matrixHomeserver: string) => Promise<void>;
-  register: (username: string, password: string, matrixBaseUrl: string, matrixHomeserver: string) => Promise<void>;
+  initializeWithToken: (token: string, userId: string, baseUrl: string) => Promise<void>;
   logout: () => void;
   setError: (error: string) => void;
   setLoading: (loading: boolean) => void;
@@ -46,9 +45,12 @@ export const useMatrix = () => {
 
 interface MatrixProviderProps {
   children: React.ReactNode;
+  token?: string;
+  userId?: string;
+  baseUrl?: string;
 }
 
-export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
+export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token, userId, baseUrl }) => {
   const [client, setClient] = useState<MatrixClient | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -58,38 +60,19 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [allMessages, setAllMessages] = useState<{[roomId: string]: Message[]}>({});
 
-  const performRegistration = async (user: string, pass: string, baseUrl: string, homeserver: string) => {
+
+  const initializeWithToken = useCallback(async (accessToken: string, matrixUserId: string, matrixBaseUrl: string) => {
+    setLoading(true);
+    setError('');
+    
     try {
       const matrixClient = createClient({
-        baseUrl: baseUrl,
-      });
-
-      await matrixClient.register(user, pass, null, { type: 'm.login.dummy' });
-      
-      const userId = `@${user}:${homeserver}`;
-      await performLogin(userId, pass, baseUrl);
-      
-    } catch (err: any) {
-      setError(`Registration failed: ${err.message}`);
-      setLoading(false);
-    }
-  };
-
-  const performLogin = async (userId: string, userPassword: string, baseUrl: string) => {
-    try {
-      const matrixClient = createClient({
-        baseUrl: baseUrl,
-        userId,
+        baseUrl: matrixBaseUrl,
+        userId: matrixUserId,
         deviceId: 'matrix-react-chat',
+        accessToken: accessToken,
       });
 
-      const loginResponse = await matrixClient.loginRequest({
-        type: 'm.login.password',
-        user: userId,
-        password: userPassword,
-      });
-
-      matrixClient.setAccessToken(loginResponse.access_token);      
       await matrixClient.startClient();
       
       // Set up message event listener
@@ -149,24 +132,12 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
       });
 
     } catch (err: any) {
-      setError(`Login failed: ${err.message}`);
+      setError(`Failed to initialize client: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  };
-
-  const register = useCallback(async (username: string, password: string, matrixBaseUrl: string, matrixHomeserver: string) => {
-    setLoading(true);
-    setError('');
-    await performRegistration(username, password, matrixBaseUrl, matrixHomeserver);
   }, []);
 
-  const login = useCallback(async (username: string, password: string, matrixBaseUrl: string, matrixHomeserver: string) => {
-    setLoading(true);
-    setError('');
-    const userId = `@${username}:${matrixHomeserver}`;
-    await performLogin(userId, password, matrixBaseUrl);
-  }, []);
 
   const logout = useCallback(() => {
     if (client) {
@@ -180,9 +151,6 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
     setCurrentRoomState(null);
     setMessages([]);
     setAllMessages({});
-    
-    localStorage.clear();
-    window.location.reload();
   }, [client]);
 
   const joinRoom = useCallback(async (roomId: string) => {
@@ -297,6 +265,13 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
     setMessages([]);
   }, []);
 
+  // Initialize with token if provided via props
+  useEffect(() => {
+    if (token && userId && baseUrl && !isLoggedIn) {
+      initializeWithToken(token, userId, baseUrl);
+    }
+  }, [token, userId, baseUrl, isLoggedIn, initializeWithToken]);
+
   const value: MatrixContextType = {
     client,
     isLoggedIn,
@@ -306,8 +281,7 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children }) => {
     currentRoom,
     messages,
     allMessages,
-    login,
-    register,
+    initializeWithToken,
     logout,
     setError,
     setLoading,
