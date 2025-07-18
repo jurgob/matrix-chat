@@ -6,6 +6,8 @@ primary_region = 'iad'
 
 [env]
   PORT = '3000'
+  HOST = '0.0.0.0'
+  HOSTNAME = '0.0.0.0'
   NODE_ENV = 'production'
   MATRIX_BASE_URL = 'https://matrix-server.fly.dev'
   MATRIX_HOMESERVER = 'matrix-server.fly.dev'
@@ -23,7 +25,7 @@ primary_region = 'iad'
     interval = '30s'
     method = 'GET'
     timeout = '5s'
-    path = '/'
+    path = '/health'
 
 [vm]
   cpu_kind = 'shared'

@@ -15,7 +15,8 @@
     "deploy:matrixserver": "fly deploy -c fly-matrix.toml",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
-    "test": "node --env-file=.env node_modules/.bin/playwright test --project=chromium"
+    "test": "node --env-file=.env node_modules/.bin/playwright test --project=chromium",
+    "test:prod": "node --env-file=.env.testprod node_modules/.bin/playwright test --project=chromium"
   },
   "dependencies": {
     "@react-router/node": "^7.5.3",
