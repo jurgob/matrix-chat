@@ -1,6 +1,7 @@
 import type { Route } from "./+types/login";
 import { useState } from 'react';
 import { Form, redirect } from 'react-router';
+import ErrorMessage from '../components/ErrorMessage';
 
 export async function loader({ request }: Route.LoaderArgs) {
   const cookieHeader = request.headers.get('Cookie');
@@ -141,11 +142,6 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-const ErrorMessage = ({ message }: { message: string }) => (
-  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-    {message}
-  </div>
-);
 
 export default function Login({ actionData }: Route.ComponentProps) {
   return (
