@@ -7,8 +7,8 @@ primary_region = 'iad'
 [env]
   PORT = '3000'
   NODE_ENV = 'production'
-  MATRIX_BASE_URL = 'https://matrix-conduit-server.fly.dev'
-  MATRIX_HOMESERVER = 'matrix-conduit-server.fly.dev'
+  MATRIX_BASE_URL = 'https://matrix-server.fly.dev'
+  MATRIX_HOMESERVER = 'matrix-server.fly.dev'
 
 [http_service]
   internal_port = 3000
