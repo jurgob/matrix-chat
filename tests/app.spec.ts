@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { config } from '../app/config';
 test.beforeEach(async ({ page }, testInfo) => {
   // Extend timeout for all tests running this hook by 30 seconds.
   testInfo.setTimeout(20000);
@@ -12,7 +13,7 @@ test('Complete user flow', async ({ page }) => {
   const testMessage = `Hello from ${testUser}!`;
   
   await test.step('Navigate to application', async () => {
-    const baseUrl = process.env.APP_BASE_URL;
+    const baseUrl = config.APP_BASE_URL;
     expect(baseUrl).toBeDefined();
     await page.goto(baseUrl!);
     await expect(page).toHaveTitle("Login - Matrix Chat");

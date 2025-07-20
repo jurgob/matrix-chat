@@ -1,7 +1,7 @@
 import type { Route } from "./+types/login";
-import { useState } from 'react';
 import { Form, redirect, createCookie } from 'react-router';
 import ErrorMessage from '../components/ErrorMessage';
+import { config } from '../config';
 
 const matrixTokenCookie = createCookie("matrix_token", {
   httpOnly: true,
@@ -45,7 +45,7 @@ export async function action({ request }: Route.ActionArgs) {
   const password = formData.get('password') as string;
   const intent = formData.get('intent') as string;
   
-  const matrixBaseUrl = process.env.MATRIX_BASE_URL || 'http://localhost:6167';
+  const matrixBaseUrl = config.MATRIX_BASE_URL;
 
   try {
     if (intent === 'register') {

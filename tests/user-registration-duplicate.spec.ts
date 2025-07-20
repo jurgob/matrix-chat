@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { config } from '../app/config';
 
 test.beforeEach(async ({ page }, testInfo) => {
   testInfo.setTimeout(20000);
@@ -8,7 +9,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 test('Duplicate user registration should show error', async ({ page }) => {
   const uuid = randomUUID();
   const testUser = `duplicate_user_${uuid}`;
-  const baseUrl = process.env.APP_BASE_URL;
+  const baseUrl = config.APP_BASE_URL;
 
   await test.step('Navigate to application', async () => {
     expect(baseUrl).toBeDefined();

@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { config } from '../app/config';
 
 test.describe('Matrix API Tests', () => {
   test('should return 200 and valid JSON for Matrix client versions endpoint', async ({ request }) => {
-    const matrixBaseUrl = process.env.MATRIX_BASE_URL;
+    const matrixBaseUrl = config.MATRIX_BASE_URL;
     const response = await request.get(`${matrixBaseUrl}/_matrix/client/versions`);
     
     expect(response.status()).toBe(200);
@@ -17,7 +18,7 @@ test.describe('Matrix API Tests', () => {
   });
 
   test('should return valid Matrix server information', async ({ request }) => {
-    const matrixBaseUrl = process.env.MATRIX_BASE_URL;
+    const matrixBaseUrl = config.MATRIX_BASE_URL;
     const response = await request.get(`${matrixBaseUrl}/_matrix/client/versions`);
     
     const responseBody = await response.json();
