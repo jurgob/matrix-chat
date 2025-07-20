@@ -7,6 +7,9 @@
 conduit-data/
 continuwuity-data/
 
+# Turbo
+.turbo/
+
 # Playwright
 node_modules/
 /test-results/

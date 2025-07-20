@@ -15,12 +15,19 @@ test('Complete user flow', async ({ page }) => {
     const baseUrl = process.env.APP_BASE_URL;
     expect(baseUrl).toBeDefined();
     await page.goto(baseUrl!);
+    await expect(page).toHaveTitle("Login - Matrix Chat");
   });
 
-  await test.step('Register new user', async () => {
+  await test.step('Register new user, on success automatically be redirect to the home page', async () => {
     await page.getByLabel('Username').fill(testUser);
     await page.getByLabel('Password').fill('testpassword123');
     await page.getByRole('button', { name: /register/i }).click();
+  });
+
+  await test.step('Check if user is redirected to home page', async () => {
+    await expect(page).toHaveTitle("Login - Matrix Chat");
+    await expect(page.getByRole('heading', { name: /Matrix Chat/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /logout/i })).toBeVisible();
   });
 
    await test.step('Exit chat and logout', async () => {
