@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  continuwuity:
-    image: forgejo.ellis.link/continuwuation/continuwuity:latest
-    container_name: matrix-continuwuity
+  tuwunel:
+    image: jevolk/tuwunel:latest
+    container_name: matrix-tuwunel
     ports:
       - "6167:6167"
     volumes:
