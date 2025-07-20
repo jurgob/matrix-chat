@@ -1,29 +1,39 @@
 import type { Route } from "./+types/home";
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { redirect, useNavigate, Link } from 'react-router';
+import { redirect, useNavigate, Link, createCookie } from 'react-router';
 import { RoomEvent, Room } from 'matrix-js-sdk';
 import { useMatrix, MatrixProvider } from '../contexts/MatrixContext';
 import JoinOrCreateRoom from '../components/JoinOrCreateRoom';
 import ErrorMessage from '../components/ErrorMessage';
 
+const matrixTokenCookie = createCookie("matrix_token", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "strict",
+  path: "/",
+  maxAge: 86400
+});
+
+const matrixUserIdCookie = createCookie("matrix_user_id", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "strict", 
+  path: "/",
+  maxAge: 86400
+});
+
+const matrixBaseUrlCookie = createCookie("matrix_base_url", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "strict",
+  path: "/", 
+  maxAge: 86400
+});
+
 export async function loader({ request }: Route.LoaderArgs) {
-  const cookieHeader = request.headers.get('Cookie');
-  
-  if (!cookieHeader) {
-    throw redirect('/login');
-  }
-  
-  // Parse cookies
-  const cookies = Object.fromEntries(
-    cookieHeader.split('; ').map(cookie => {
-      const [name, value] = cookie.split('=');
-      return [name, decodeURIComponent(value)];
-    })
-  );
-  
-  const token = cookies.matrix_token;
-  const userId = cookies.matrix_user_id;
-  const baseUrl = cookies.matrix_base_url;
+  const token = await matrixTokenCookie.parse(request.headers.get('Cookie'));
+  const userId = await matrixUserIdCookie.parse(request.headers.get('Cookie'));
+  const baseUrl = await matrixBaseUrlCookie.parse(request.headers.get('Cookie'));
   
   if (!token || !userId || !baseUrl) {
     throw redirect('/login');

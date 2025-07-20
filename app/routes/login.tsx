@@ -1,27 +1,39 @@
 import type { Route } from "./+types/login";
 import { useState } from 'react';
-import { Form, redirect } from 'react-router';
+import { Form, redirect, createCookie } from 'react-router';
 import ErrorMessage from '../components/ErrorMessage';
 
+const matrixTokenCookie = createCookie("matrix_token", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "strict",
+  path: "/",
+  maxAge: 86400
+});
+
+const matrixUserIdCookie = createCookie("matrix_user_id", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "strict", 
+  path: "/",
+  maxAge: 86400
+});
+
+const matrixBaseUrlCookie = createCookie("matrix_base_url", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "strict",
+  path: "/", 
+  maxAge: 86400
+});
+
 export async function loader({ request }: Route.LoaderArgs) {
-  const cookieHeader = request.headers.get('Cookie');
+  const token = await matrixTokenCookie.parse(request.headers.get('Cookie'));
+  const userId = await matrixUserIdCookie.parse(request.headers.get('Cookie'));
   
-  if (cookieHeader) {
-    // Parse cookies
-    const cookies = Object.fromEntries(
-      cookieHeader.split('; ').map(cookie => {
-        const [name, value] = cookie.split('=');
-        return [name, decodeURIComponent(value)];
-      })
-    );
-    
-    const token = cookies.matrix_token;
-    const userId = cookies.matrix_user_id;
-    
-    // If user already has valid cookies, redirect to home
-    if (token && userId) {
-      throw redirect('/');
-    }
+  // If user already has valid cookies, redirect to home
+  if (token && userId) {
+    throw redirect('/');
   }
   
   return null;
@@ -72,30 +84,24 @@ export async function action({ request }: Route.ActionArgs) {
         const authData = await authResponse.json();
 
         if (authResponse.ok) {
-          // Set httpOnly cookie and redirect
-          return redirect('/', {
-            headers: {
-              'Set-Cookie': [
-                `matrix_token=${authData.access_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`,
-                `matrix_user_id=${authData.user_id}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`,
-                `matrix_base_url=${matrixBaseUrl}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`
-              ].join(', ')
-            }
-          });
+          // Set cookies using React Router's cookie helpers
+          const headers = new Headers();
+          headers.append('Set-Cookie', await matrixTokenCookie.serialize(authData.access_token));
+          headers.append('Set-Cookie', await matrixUserIdCookie.serialize(authData.user_id));
+          headers.append('Set-Cookie', await matrixBaseUrlCookie.serialize(matrixBaseUrl));
+          
+          return redirect('/', { headers });
         } else {
           return { error: authData.error || 'Registration failed' };
         }
       } else if (initialResponse.ok) {
         // Registration succeeded without UIAA
-        return redirect('/', {
-          headers: {
-            'Set-Cookie': [
-              `matrix_token=${initialData.access_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`,
-              `matrix_user_id=${initialData.user_id}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`,
-              `matrix_base_url=${matrixBaseUrl}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`
-            ].join(', ')
-          }
-        });
+        const headers = new Headers();
+        headers.append('Set-Cookie', await matrixTokenCookie.serialize(initialData.access_token));
+        headers.append('Set-Cookie', await matrixUserIdCookie.serialize(initialData.user_id));
+        headers.append('Set-Cookie', await matrixBaseUrlCookie.serialize(matrixBaseUrl));
+        
+        return redirect('/', { headers });
       } else {
         return { error: initialData.error || 'Registration failed' };
       }
@@ -116,16 +122,13 @@ export async function action({ request }: Route.ActionArgs) {
       const data = await response.json();
 
       if (response.ok) {
-        // Set httpOnly cookie and redirect
-        return redirect('/', {
-          headers: {
-            'Set-Cookie': [
-              `matrix_token=${data.access_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`,
-              `matrix_user_id=${data.user_id}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`,
-              `matrix_base_url=${matrixBaseUrl}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`
-            ].join(', ')
-          }
-        });
+        // Set cookies using React Router's cookie helpers
+        const headers = new Headers();
+        headers.append('Set-Cookie', await matrixTokenCookie.serialize(data.access_token));
+        headers.append('Set-Cookie', await matrixUserIdCookie.serialize(data.user_id));
+        headers.append('Set-Cookie', await matrixBaseUrlCookie.serialize(matrixBaseUrl));
+        
+        return redirect('/', { headers });
       } else {
         return { error: data.error || 'Login failed' };
       }
