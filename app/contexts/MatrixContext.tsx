@@ -131,6 +131,17 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
         }
       });
 
+      // Listen for room events to update the rooms list in real-time
+      matrixClient.on(ClientEvent.Room, (room: Room) => {
+        console.log("New room joined/created:", room.name || room.roomId);
+        setRooms(prev => {
+          // Check if room already exists to avoid duplicates
+          const exists = prev.some(r => r.roomId === room.roomId);
+          if (exists) return prev;
+          return [...prev, room];
+        });
+      });
+
     } catch (err: any) {
       setError(`Failed to initialize client: ${err.message}`);
     } finally {
@@ -162,8 +173,18 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
     try {
       await client.joinRoom(roomId);
       
+      // Get the room object and add it to the list if not already there
+      const roomObj = client.getRoom(roomId);
+      if (roomObj) {
+        setRooms(prev => {
+          const exists = prev.some(r => r.roomId === roomId);
+          if (exists) return prev;
+          return [...prev, roomObj];
+        });
+      }
+      
       // Set the current room only after successful join
-      const room = rooms.find(r => r.roomId === roomId);
+      const room = rooms.find(r => r.roomId === roomId) || roomObj;
       if (room) {
         setCurrentRoomState({
           id: roomId,
@@ -205,7 +226,7 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
     } finally {
       setLoading(false);
     }
-  }, [client, allMessages]);
+  }, [client, allMessages, rooms]);
 
   const createRoom = useCallback(async (roomName: string) => {
     if (!client || !roomName.trim()) return;
@@ -219,6 +240,17 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
         visibility: Visibility.Public,
         preset: Preset.PublicChat,
       });
+      
+      // Get the actual room object from the client
+      const createdRoom = client.getRoom(room.room_id);
+      if (createdRoom) {
+        // Add the room to the rooms list immediately
+        setRooms(prev => {
+          const exists = prev.some(r => r.roomId === room.room_id);
+          if (exists) return prev;
+          return [...prev, createdRoom];
+        });
+      }
       
       setCurrentRoomState({
         id: room.room_id,

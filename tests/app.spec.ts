@@ -42,17 +42,22 @@ test('Complete user flow', async ({ page }) => {
   });
 
   await test.step('Create new chat', async () => {
-    await page.getByLabel('Room Name').fill(testChat);
+    await page.getByPlaceholder('Enter room name').fill(testChat);
     await page.getByRole('button', { name: /create room/i }).click();
-    await expect(page.getByText(testChat)).toBeVisible();
+    
+    // Verify that the room appears in the sidebar immediately without refresh
+    await expect(page.getByText(`# ${testChat}`)).toBeVisible({ timeout: 5000 });
+    
+    // Verify we're now in the created room (header should show the room name)
+    await expect(page.getByText(`# ${testChat}`).first()).toBeVisible();
   });
 
   await test.step('Join the new chat', async () => {
-    await page.getByText(testChat).click();
+    await page.getByText(`# ${testChat}`).click();
   });
 
    await test.step('Load the new chat and send message', async () => {
-    await expect(page.getByText(`Room: ${testChat}`)).toBeVisible();
+    await expect(page.getByText(`# ${testChat}`)).toBeVisible();
     // await page.getByRole('button', { name: 'Join', exact: true }).click();
     await page.getByLabel(/message/i).fill(testMessage);
     await page.getByRole('button', { name: /send/i }).click();
@@ -60,7 +65,7 @@ test('Complete user flow', async ({ page }) => {
   });
 
   await test.step('Exit chat and logout', async () => {
-    await page.getByRole('button', { name: /leave.*room/i }).click();
+    // In the new Discord-like interface, there's no leave room button - just logout directly
     await page.getByRole('link', { name: /logout/i }).click();
   });
 });

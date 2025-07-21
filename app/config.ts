@@ -10,7 +10,6 @@ const configSchema = z.object({
 export type Config = z.infer<typeof configSchema>;
 
 function getConfig(): Config {
-  console.log("Loading configuration from environment variables");
   return configSchema.parse(process.env);
 }
 

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { redirect, useNavigate, Link, createCookie } from 'react-router';
 import { RoomEvent, Room } from 'matrix-js-sdk';
 import { useMatrix, MatrixProvider } from '../contexts/MatrixContext';
-import JoinOrCreateRoom from '../components/JoinOrCreateRoom';
+import ChatSidebar from '../components/ChatSidebar';
 import ErrorMessage from '../components/ErrorMessage';
 
 const matrixTokenCookie = createCookie("matrix_token", {
@@ -69,8 +69,6 @@ function HomeContent({ token, userId }: { token?: string; userId?: string }) {
     leaveCurrentRoom,
     initializeWithToken
   } = useMatrix();
-  const [roomId, setRoomId] = useState('');
-  const [roomName, setRoomName] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -86,16 +84,14 @@ function HomeContent({ token, userId }: { token?: string; userId?: string }) {
 
 
 
-  const handleJoinRoom = async (targetRoomId?: string) => {
-    const roomToJoin = targetRoomId || roomId;
-    if (!roomToJoin) return;
-    await joinRoom(roomToJoin);
+  const handleJoinRoom = async (roomId: string) => {
+    if (!roomId) return;
+    await joinRoom(roomId);
   };
 
-  const handleCreateRoom = async () => {
+  const handleCreateRoom = async (roomName: string) => {
     if (!roomName.trim()) return;
     await createRoom(roomName);
-    setRoomName('');
   };
 
   const handleSendMessage = async () => {
@@ -159,107 +155,90 @@ function HomeContent({ token, userId }: { token?: string; userId?: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-white shadow-sm p-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold">Matrix Chat</h1>
-          <Link
-            to="/logout"
-            className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
-          >
-            Logout
-          </Link>
-        </div>
-      </header>
+    <div className="h-screen bg-gray-100 flex">
+      {/* Discord-like Sidebar */}
+      <ChatSidebar
+        rooms={rooms}
+        currentRoom={currentRoom}
+        onJoinRoom={handleJoinRoom}
+        onCreateRoom={handleCreateRoom}
+        loading={loading}
+        error={error}
+      />
 
-      <div className="flex-1 p-4">
-        {!currentRoom ? (
-          <div>
-            <JoinOrCreateRoom 
-              roomId={roomId}
-              setRoomId={setRoomId}
-              roomName={roomName}
-              setRoomName={setRoomName}
-              joinRoom={handleJoinRoom}
-              createRoom={handleCreateRoom}
-              loading={loading}
-              error={error}
-            />
-            <div className="mt-4">
-            <h2 className="text-lg font-semibold mb-2">Available Rooms ({rooms.length})</h2>
-              <ul className="space-y-2">
-                {rooms.map((room) => (
-                  <li key={room.roomId} className="flex items-center justify-between bg-gray-50 p-3 rounded-md shadow-sm">
-                    <span>{room.name || room.roomId}</span>
-                     <button
-                      onClick={() => handleJoinRoom(room.roomId)}
-                      className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
-                    >
-                      Join
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-white shadow-sm p-4 border-b">
+          <div className="flex justify-between items-center">
+            <h1 className="text-xl font-bold">
+              {currentRoom ? `# ${currentRoom.name}` : 'Matrix Chat'}
+            </h1>
+            <Link
+              to="/logout"
+              className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
+            >
+              Logout
+            </Link>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-md h-full flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="font-semibold">Room: {currentRoom?.name}</h2>
-              <button
-                onClick={() => {
-                  leaveCurrentRoom();
-                  setRoomId('');
-                  setRoomName('');
-                }}
-                className="bg-gray-500 text-white px-3 py-1 rounded-md hover:bg-gray-600 text-sm"
-              >
-                Leave Room
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((msg) => (
-                <div key={msg.id} className="flex flex-col">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-sm text-blue-600">
-                      {msg.sender}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {msg.timestamp.toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <div className="bg-gray-100 rounded-lg p-3 max-w-xs lg:max-w-md">
-                    {msg.body}
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-            
-            <div className="p-4 border-t">
-              <div className="flex space-x-2">
-                <input
-                  id="messageInput"
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  aria-label="Message"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onKeyPress={handleKeyPress}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
-                >
-                  Send
-                </button>
+        </header>
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {!currentRoom ? (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center text-gray-500">
+                <h2 className="text-2xl font-semibold mb-2">Welcome to Matrix Chat</h2>
+                <p>Select a room from the sidebar or create a new one to start chatting.</p>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <>
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+                {messages.map((msg) => (
+                  <div key={msg.id} className="flex flex-col">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="font-medium text-sm text-blue-600">
+                        {msg.sender}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {msg.timestamp.toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="bg-gray-100 rounded-lg p-3 max-w-xs lg:max-w-md">
+                      {msg.body}
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              
+              {/* Message Input */}
+              <div className="p-4 border-t bg-white">
+                <div className="flex space-x-2">
+                  <input
+                    id="messageInput"
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder={`Message # ${currentRoom.name}`}
+                    aria-label="Message"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyPress={handleKeyPress}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim()}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
