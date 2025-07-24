@@ -46,19 +46,22 @@ export async function loader({ request }: Route.LoaderArgs): Promise<BrowseData>
   }
 
   try {
-    // Build URL with filter parameter if provided
-    const publicRoomsUrl = new URL(`${baseUrl}/_matrix/client/v3/publicRooms`);
-    if (filter) {
-      publicRoomsUrl.searchParams.set('filter', JSON.stringify({ generic_search_term: filter }));
-    }
-
     // Fetch public rooms from Matrix API
-    const publicRoomsResponse = await fetch(publicRoomsUrl.toString(), {
-      method: 'GET',
+    const publicRoomsUrl = `${baseUrl}/_matrix/client/v3/publicRooms`;
+    const requestBody = filter ? { 
+      filter: { 
+        generic_search_term: filter 
+      },
+      limit: 100
+    } : { limit: 100 };
+
+    const publicRoomsResponse = await fetch(publicRoomsUrl, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify(requestBody),
     });
 
     if (!publicRoomsResponse.ok) {
@@ -66,7 +69,6 @@ export async function loader({ request }: Route.LoaderArgs): Promise<BrowseData>
     }
 
     const publicRoomsData = await publicRoomsResponse.json();
-    console.log('Public rooms data:', publicRoomsData);
 
     // Fetch user's joined rooms to filter them out
     const joinedRoomsResponse = await fetch(`${baseUrl}/_matrix/client/v3/joined_rooms`, {
@@ -134,7 +136,7 @@ export async function action({ request }: Route.ActionArgs) {
 
       if (joinResponse.ok) {
         // Redirect to the room after joining
-        throw redirect(`/room/${roomId}`);
+        return redirect(`/room/${roomId}`);
       } else {
         const errorData = await joinResponse.json();
         console.error('Failed to join room:', errorData);
@@ -179,6 +181,9 @@ export default function Browse() {
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-500 text-white border border-blue-500 rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                name="action"
+                value="search"
+                data-testid="search-button"
               >
                 {navigation.state === 'loading' ? (
                   <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

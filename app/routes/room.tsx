@@ -161,8 +161,6 @@ export async function action({ request, params }: Route.ActionArgs) {
         error: 'Failed to send message' 
       };
     }
-
-    console.log(`Message sent successfully to room ${roomId}`);
     
     // Success: return empty message text to clear the input
     return { 

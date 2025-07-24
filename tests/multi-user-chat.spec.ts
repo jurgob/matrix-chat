@@ -50,6 +50,11 @@ test('Multi-user chat functionality', async ({ browser }) => {
       await expect(pageA.getByText(messageFromA)).toBeVisible();
     });
 
+    await test.step('Wait for room to be discoverable', async () => {
+      // Wait for the room to be registered and discoverable on the Matrix server
+      await pageA.waitForTimeout(3000);
+    });
+
     // User B: Register and join the room
     await test.step('User B: Register and login', async () => {
       await pageB.goto(baseUrl!);
@@ -71,7 +76,7 @@ test('Multi-user chat functionality', async ({ browser }) => {
       
     });
 
-     await test.step('User B: Search for the conversation', async () => {
+    await test.step('User B: Search for the conversation', async () => {
       // Search for the specific room by filtering - the input should be available
       const filterInput = pageB.getByPlaceholder('Filter rooms...');
       await expect(filterInput).toBeVisible({ timeout: 1000 });
@@ -81,32 +86,26 @@ test('Multi-user chat functionality', async ({ browser }) => {
       
       // Try to search for the room, but don't fail if Matrix server hasn't indexed it yet
       await filterInput.fill(testChat);
-      await pageB.getByRole('button').filter({ has: pageB.locator('svg') }).first().click(); // Search button
+      // await pageB.getByRole('button', { name: 'search' }).click();
+      await pageB.getByTestId('search-button').click();
       
-      // Check if the room appears, but if not, skip the join test
       const roomElement = pageB.getByText(`#${testChat}`);
-      const isRoomVisible = await roomElement.isVisible({ timeout: 2000 }).catch(() => false);
+      // Room is discoverable - proceed with join test
+      await expect(roomElement).toBeVisible();
       
-      if (isRoomVisible) {
-        // Room is discoverable - proceed with join test
-        await expect(roomElement).toBeVisible();
-        
-        const joinButton = pageB.getByRole('button', { name: 'Join' }).first();
-        await expect(joinButton).toBeVisible();
-        await joinButton.click();
-        
-        // Verify we're now in chat mode and the room appears in sidebar (allow time for room join)
-        await expect(pageB.locator('.bg-gray-800').locator('button').first()).toBeVisible({ timeout: 5000 });
-        
-        // Click on the first (and only) room in sidebar to actually enter it
-        await pageB.locator('.bg-gray-800').locator('button').first().click();
-      } else {
-        console.log(`Room ${testChat} not immediately discoverable - this is expected behavior for Matrix servers with indexing delays`);
-        
-        // Skip the multi-user chat portion since room discovery failed
-        // This indicates the Matrix server has indexing delays, which is normal
-        test.skip(true, 'Room not discoverable due to Matrix server indexing delays');
-      }
+      const joinButton = pageB.getByRole('button', { name: 'Join' }).first();
+      await expect(joinButton).toBeVisible();
+    });
+
+    await test.step('User B: Join the conversation', async () => {
+      const joinButton = pageB.getByRole('button', { name: 'Join' }).first();
+      await joinButton.click();
+      
+      // Verify we're now in chat mode and the room appears in sidebar (allow time for room join)
+      await expect(pageB.locator('.bg-gray-800').locator('button').first()).toBeVisible({ timeout: 5000 });
+      
+      // Click on the first (and only) room in sidebar to actually enter it
+      await pageB.locator('.bg-gray-800').locator('button').first().click();
     });
 
     await test.step('User B: See User A\'s message', async () => {

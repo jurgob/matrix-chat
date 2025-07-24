@@ -143,7 +143,7 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
                 return bTime - aTime; // Most recent first
               }
             } catch (error) {
-              console.log("Error getting timeline for joined rooms:", error);
+              console.error("Error getting timeline for joined rooms:", error);
             }
           }
         }
@@ -152,7 +152,6 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
         return b.numJoinedMembers - a.numJoinedMembers;
       });
       
-      console.log("Public rooms found:", publicRoomsList.length);
       setPublicRooms(publicRoomsList);
     } catch (err: any) {
       console.error("Failed to fetch public rooms:", err.message);
@@ -252,7 +251,6 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
       matrixClient.once(ClientEvent.Sync, (state) => {
         if (state === SyncState.Prepared) {
           const rooms = matrixClient.getRooms();
-          console.log("Known rooms:", rooms.length);
           setRooms(rooms);
           // Fetch public rooms after sync is complete
           refreshPublicRoomsInternal(matrixClient);
@@ -261,7 +259,6 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
 
       // Listen for room events to update the rooms list in real-time
       matrixClient.on(ClientEvent.Room, (room: Room) => {
-        console.log("New room joined/created:", room.name || room.roomId);
         setRooms(prev => {
           // Check if room already exists to avoid duplicates
           const exists = prev.some(r => r.roomId === room.roomId);

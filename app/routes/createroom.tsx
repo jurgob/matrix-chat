@@ -67,7 +67,6 @@ export async function action({ request }: Route.ActionArgs): Promise<ActionData 
         }
       ]
     }
-    console.log('Creating room with body:', body);  
     const response = await fetch(`${baseUrl}/_matrix/client/v3/createRoom`, {
       method: 'POST',
       headers: {
@@ -85,6 +84,23 @@ export async function action({ request }: Route.ActionArgs): Promise<ActionData 
 
     const data = await response.json();
     const roomId = data.room_id;
+
+    // Explicitly publish the room to the public directory if it's public
+    if (isPublic) {
+      try {
+        await fetch(`${baseUrl}/_matrix/client/v3/directory/list/room/${encodeURIComponent(roomId)}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ visibility: 'public' }),
+        });
+      } catch (error) {
+        console.warn('Failed to publish room to directory:', error);
+        // Don't fail the room creation if directory publishing fails
+      }
+    }
 
     // Redirect to the newly created room
     throw redirect(`/room/${roomId}`);

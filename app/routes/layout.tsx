@@ -39,12 +39,10 @@ interface LayoutData {
 }
 
 export async function loader({ request }: Route.LoaderArgs): Promise<LayoutData> {
-  console.log('Layout loader called');
   const token = await matrixTokenCookie.parse(request.headers.get('Cookie'));
   const userId = await matrixUserIdCookie.parse(request.headers.get('Cookie'));
   const baseUrl = await matrixBaseUrlCookie.parse(request.headers.get('Cookie'));
   
-  console.log('Layout loader called with token:', token, 'userId:', userId, 'baseUrl:', baseUrl);
   if (!token || !userId || !baseUrl) {
     throw redirect('/login');
   }
@@ -107,69 +105,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<LayoutData>
   }
 }
 
-export async function action({ request }: Route.ActionArgs) {
-  console.log('Layout action called');
-  const token = await matrixTokenCookie.parse(request.headers.get('Cookie'));
-  const baseUrl = await matrixBaseUrlCookie.parse(request.headers.get('Cookie'));
-  
-  if (!token || !baseUrl) {
-    throw redirect('/login');
-  }
 
-  const formData = await request.formData();
-  const action = formData.get('action') as string;
-  const roomName = formData.get('roomName') as string;
-
-  if (action === 'create-room' && roomName?.trim()) {
-    try {
-      // Create room via Matrix API
-      const response = await fetch(`${baseUrl}/_matrix/client/v3/createRoom`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: roomName.trim(),
-          visibility: 'public',
-          preset: 'public_chat',
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to create room: ${error}`);
-      }
-
-      const data = await response.json();
-      const roomId = data.room_id;
-
-      // Explicitly publish the room to the public directory
-      try {
-        await fetch(`${baseUrl}/_matrix/client/v3/directory/list/room/${encodeURIComponent(roomId)}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ visibility: 'public' }),
-        });
-      } catch (error) {
-        console.warn('Failed to publish room to directory:', error);
-        // Don't fail the room creation if directory publishing fails
-      }
-
-      // Redirect to the newly created room
-      return redirect(`/room/${roomId}`);
-    } catch (error) {
-      console.error('Room creation failed:', error);
-      // Return error - we could enhance this with proper error handling
-      return { error: 'Failed to create room' };
-    }
-  }
-
-  return null;
-}
 
 export default function Layout() {
   const { userId, rooms } = useLoaderData<typeof loader>();
