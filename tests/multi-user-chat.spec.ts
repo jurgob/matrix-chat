@@ -87,7 +87,7 @@ test('Multi-user chat functionality', async ({ browser }) => {
       // Try to search for the room, but don't fail if Matrix server hasn't indexed it yet
       await filterInput.fill(testChat);
       // await pageB.getByRole('button', { name: 'search' }).click();
-      await pageB.getByTestId('search-button').click();
+      await pageB.getByRole('button', {name:"Search Rooms"}).click();
       
       const roomElement = pageB.getByText(`#${testChat}`);
       // Room is discoverable - proceed with join test
