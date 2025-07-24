@@ -2,6 +2,7 @@ import type { Route } from "./+types/room";
 import { useLoaderData, Form, useNavigation, useActionData } from 'react-router';
 import { redirect, createCookie } from 'react-router';
 import { useState, useEffect } from 'react';
+import { useMatrixSync } from '../hooks/useMatrixSync';
 
 // Cookie definitions
 const matrixTokenCookie = createCookie("matrix_token", {
@@ -34,6 +35,10 @@ interface RoomData {
   };
   messages: Message[];
   pageTitle: string;
+  matrixConfig: {
+    token: string;
+    baseUrl: string;
+  };
 }
 
 export async function loader({ params, request }: Route.LoaderArgs): Promise<RoomData> {
@@ -108,7 +113,11 @@ export async function loader({ params, request }: Route.LoaderArgs): Promise<Roo
   return { 
     room, 
     messages, 
-    pageTitle: `# ${roomName}`
+    pageTitle: `# ${roomName}`,
+    matrixConfig: {
+      token,
+      baseUrl
+    }
   };
 }
 
@@ -177,11 +186,19 @@ export function meta({ params }: Route.MetaArgs) {
 }
 
 export default function Room() {
-  const { room, messages } = useLoaderData<typeof loader>();
+  const { room, messages: initialMessages, matrixConfig } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const actionData = useActionData<typeof action>();
   const isSubmitting = navigation.state === 'submitting';
   const [messageText, setMessageText] = useState('');
+
+  // Use Matrix sync hook for real-time updates
+  const { messages, isConnected, error: syncError } = useMatrixSync({
+    roomId: room.id,
+    initialEvents: initialMessages,
+    token: matrixConfig.token,
+    baseUrl: matrixConfig.baseUrl
+  });
 
   // Sync with action data - clear on success, restore on error
   useEffect(() => {
@@ -195,6 +212,23 @@ export default function Room() {
       {/* Room header - title will be set by layout */}
       <div className="hidden">
         <h1>#{room.name}</h1>
+      </div>
+
+      {/* Connection Status */}
+      <div className="px-4 py-2 bg-gray-50 border-b text-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-gray-600">
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+          {syncError && (
+            <span className="text-red-600 text-xs">
+              Sync error: {syncError}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -223,6 +257,11 @@ export default function Room() {
       
       {/* Message Input */}
       <div className="p-4 border-t bg-white">
+        {actionData?.error && (
+          <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">{actionData.error}</p>
+          </div>
+        )}
         <Form method="post" className="flex space-x-2">
           <input type="hidden" name="roomName" value={room.name} />
           <input
