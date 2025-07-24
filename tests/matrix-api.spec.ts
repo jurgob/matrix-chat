@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { config } from '../app/config';
+import { config } from '../app/env.server';
 
 test.describe('Matrix API Tests', () => {
   test('should return 200 and valid JSON for Matrix client versions endpoint', async ({ request }) => {

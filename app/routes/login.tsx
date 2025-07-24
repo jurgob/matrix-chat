@@ -1,7 +1,7 @@
 import type { Route } from "./+types/login";
 import { Form, redirect, createCookie } from 'react-router';
 import ErrorMessage from '../components/ErrorMessage';
-import { config } from '../config';
+import { config } from '../env.server';
 
 const matrixTokenCookie = createCookie("matrix_token", {
   httpOnly: true,

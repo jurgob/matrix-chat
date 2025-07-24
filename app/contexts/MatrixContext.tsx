@@ -13,13 +13,38 @@ interface CurrentRoom {
   name: string;
 }
 
+interface PublicRoom {
+  roomId: string;
+  name: string;
+  topic?: string;
+  numJoinedMembers: number;
+  isJoined: boolean;
+}
+
+interface InvitedRoom {
+  roomId: string;
+  name: string;
+  inviter: string;
+}
+
+interface PublicUser {
+  userId: string;
+  displayName?: string;
+  avatarUrl?: string;
+}
+
 interface MatrixContextType {
   client: MatrixClient | null;
   isLoggedIn: boolean;
   loading: boolean;
   error: string;
   rooms: Room[];
+  sortedRooms: Room[];
+  publicRooms: PublicRoom[];
+  invitedRooms: InvitedRoom[];
+  publicUsers: PublicUser[];
   currentRoom: CurrentRoom | null;
+  currentView: 'chat' | 'browse';
   messages: Message[];
   allMessages: {[roomId: string]: Message[]};
   initializeWithToken: (token: string, userId: string, baseUrl: string) => Promise<void>;
@@ -31,6 +56,12 @@ interface MatrixContextType {
   sendMessage: (message: string) => Promise<void>;
   setCurrentRoom: (roomId: string) => void;
   leaveCurrentRoom: () => void;
+  refreshPublicRooms: () => Promise<void>;
+  inviteUser: (roomId: string, userId: string) => Promise<void>;
+  acceptInvite: (roomId: string) => Promise<void>;
+  rejectInvite: (roomId: string) => Promise<void>;
+  setCurrentView: (view: 'chat' | 'browse') => void;
+  searchUsers: (query: string) => Promise<PublicUser[]>;
 }
 
 const MatrixContext = createContext<MatrixContextType | undefined>(undefined);
@@ -56,10 +87,105 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [sortedRooms, setSortedRooms] = useState<Room[]>([]);
+  const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
+  const [invitedRooms, setInvitedRooms] = useState<InvitedRoom[]>([]);
+  const [publicUsers, setPublicUsers] = useState<PublicUser[]>([]);
   const [currentRoom, setCurrentRoomState] = useState<CurrentRoom | null>(null);
+  const [currentView, setCurrentView] = useState<'chat' | 'browse'>('chat');
   const [messages, setMessages] = useState<Message[]>([]);
   const [allMessages, setAllMessages] = useState<{[roomId: string]: Message[]}>({});
 
+  const refreshPublicRoomsInternal = useCallback(async (matrixClient: MatrixClient) => {
+    try {
+      const response = await matrixClient.publicRooms({
+        limit: 500,
+        // The Matrix protocol doesn't directly support ordering by recent activity in publicRooms,
+        // but we can sort the results after fetching them
+      });
+      const joinedRoomIds = matrixClient.getRooms().map(r => r.roomId);
+      
+      let publicRoomsList: PublicRoom[] = response.chunk.map((room: any) => ({
+        roomId: room.room_id,
+        name: room.name || room.canonical_alias || room.room_id,
+        topic: room.topic,
+        numJoinedMembers: room.num_joined_members || 0,
+        isJoined: joinedRoomIds.includes(room.room_id)
+      }));
+      
+      // Sort by most recent activity and member count
+      publicRoomsList = publicRoomsList.sort((a, b) => {
+        // First, prioritize joined rooms
+        if (a.isJoined && !b.isJoined) return -1;
+        if (!a.isJoined && b.isJoined) return 1;
+        
+        // For joined rooms, try to get actual timeline activity
+        if (a.isJoined && b.isJoined) {
+          const roomA = matrixClient.getRoom(a.roomId);
+          const roomB = matrixClient.getRoom(b.roomId);
+          
+          if (roomA && roomB) {
+            try {
+              const aTimeline = roomA.getLiveTimeline();
+              const bTimeline = roomB.getLiveTimeline();
+              
+              const aEvents = aTimeline.getEvents();
+              const bEvents = bTimeline.getEvents();
+              
+              // Get the most recent message event
+              const aLastMessageEvent = aEvents.reverse().find(e => e.getType() === 'm.room.message');
+              const bLastMessageEvent = bEvents.reverse().find(e => e.getType() === 'm.room.message');
+              
+              const aTime = aLastMessageEvent ? aLastMessageEvent.getTs() : 0;
+              const bTime = bLastMessageEvent ? bLastMessageEvent.getTs() : 0;
+              
+              if (aTime !== bTime) {
+                return bTime - aTime; // Most recent first
+              }
+            } catch (error) {
+              console.log("Error getting timeline for joined rooms:", error);
+            }
+          }
+        }
+        
+        // Fallback to member count (higher member count = more activity)
+        return b.numJoinedMembers - a.numJoinedMembers;
+      });
+      
+      console.log("Public rooms found:", publicRoomsList.length);
+      setPublicRooms(publicRoomsList);
+    } catch (err: any) {
+      console.error("Failed to fetch public rooms:", err.message);
+    }
+  }, []);
+
+  const refreshPublicRooms = useCallback(async () => {
+    if (!client) return;
+    await refreshPublicRoomsInternal(client);
+  }, [client, refreshPublicRoomsInternal]);
+
+  const sortRoomsByActivity = useCallback((roomsList: Room[]) => {
+    return [...roomsList].sort((a, b) => {
+      const aTimeline = a.getLiveTimeline();
+      const bTimeline = b.getLiveTimeline();
+      
+      const aEvents = aTimeline.getEvents();
+      const bEvents = bTimeline.getEvents();
+      
+      const aLastEvent = aEvents.length > 0 ? aEvents[aEvents.length - 1] : null;
+      const bLastEvent = bEvents.length > 0 ? bEvents[bEvents.length - 1] : null;
+      
+      const aTime = aLastEvent ? aLastEvent.getTs() : 0;
+      const bTime = bLastEvent ? bLastEvent.getTs() : 0;
+      
+      return bTime - aTime; // Most recent first
+    });
+  }, []);
+
+  // Update sorted rooms whenever rooms change
+  useEffect(() => {
+    setSortedRooms(sortRoomsByActivity(rooms));
+  }, [rooms, sortRoomsByActivity]);
 
   const initializeWithToken = useCallback(async (accessToken: string, matrixUserId: string, matrixBaseUrl: string) => {
     setLoading(true);
@@ -128,6 +254,8 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
           const rooms = matrixClient.getRooms();
           console.log("Known rooms:", rooms.length);
           setRooms(rooms);
+          // Fetch public rooms after sync is complete
+          refreshPublicRoomsInternal(matrixClient);
         }
       });
 
@@ -140,7 +268,23 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
           if (exists) return prev;
           return [...prev, room];
         });
+        
+        // Refresh public rooms when a new room is detected
+        // This will help other users see newly created public rooms
+        refreshPublicRoomsInternal(matrixClient);
       });
+
+      // Set up periodic refresh of public rooms to catch changes from other users
+      const refreshInterval = setInterval(() => {
+        refreshPublicRoomsInternal(matrixClient);
+      }, 10000); // Refresh every 10 seconds
+
+      // Cleanup interval when client is stopped
+      const originalStop = matrixClient.stopClient.bind(matrixClient);
+      matrixClient.stopClient = function() {
+        clearInterval(refreshInterval);
+        return originalStop();
+      };
 
     } catch (err: any) {
       setError(`Failed to initialize client: ${err.message}`);
@@ -157,6 +301,11 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
     setClient(null);
     setIsLoggedIn(false);
     setRooms([]);
+    setSortedRooms([]);
+    setPublicRooms([]);
+    setInvitedRooms([]);
+    setPublicUsers([]);
+    setCurrentView('chat');
     setError('');
     setLoading(false);
     setCurrentRoomState(null);
@@ -186,9 +335,17 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
       // Set the current room only after successful join
       const room = rooms.find(r => r.roomId === roomId) || roomObj;
       if (room) {
+        // Try to get a proper room name, fallback to a cleaned up room ID
+        let roomName = room.name;
+        if (!roomName || roomName.trim() === '') {
+          // If no name, use the room ID but clean it up
+          // Remove the server part and leading characters to make it more readable
+          roomName = roomId.replace(/^[!#]/, '').split(':')[0];
+        }
+        
         setCurrentRoomState({
           id: roomId,
-          name: room.name || roomId
+          name: roomName
         });
       }
       
@@ -221,12 +378,15 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
         }
       }
       
+      // Refresh public rooms to update join status
+      await refreshPublicRoomsInternal(client);
+      
     } catch (err: any) {
       setError(`Failed to join room: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [client, allMessages, rooms]);
+  }, [client, allMessages, rooms, refreshPublicRoomsInternal]);
 
   const createRoom = useCallback(async (roomName: string) => {
     if (!client || !roomName.trim()) return;
@@ -258,12 +418,15 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
       });
       setMessages([]);
       
+      // Refresh public rooms to show the new room
+      await refreshPublicRoomsInternal(client);
+      
     } catch (err: any) {
       setError(`Failed to create room: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [client]);
+  }, [client, refreshPublicRoomsInternal]);
 
   const sendMessage = useCallback(async (messageText: string) => {
     if (!client || !currentRoom || !messageText.trim()) return;
@@ -278,9 +441,17 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
   const setCurrentRoom = useCallback((roomId: string) => {
     const room = rooms.find(r => r.roomId === roomId);
     if (room) {
+      // Try to get a proper room name, fallback to a cleaned up room ID
+      let roomName = room.name;
+      if (!roomName || roomName.trim() === '') {
+        // If no name, use the room ID but clean it up
+        // Remove the server part and leading characters to make it more readable
+        roomName = roomId.replace(/^[!#]/, '').split(':')[0];
+      }
+      
       setCurrentRoomState({
         id: roomId,
-        name: room.name || roomId
+        name: roomName
       });
       
       // Load messages for the room
@@ -297,6 +468,55 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
     setMessages([]);
   }, []);
 
+  const inviteUser = useCallback(async (roomId: string, userId: string) => {
+    if (!client) return;
+    try {
+      await client.invite(roomId, userId);
+    } catch (err: any) {
+      setError(`Failed to invite user: ${err.message}`);
+    }
+  }, [client]);
+
+  const acceptInvite = useCallback(async (roomId: string) => {
+    if (!client) return;
+    try {
+      await client.joinRoom(roomId);
+      // Remove from invited rooms and add to regular rooms
+      setInvitedRooms(prev => prev.filter(r => r.roomId !== roomId));
+      const room = client.getRoom(roomId);
+      if (room) {
+        setRooms(prev => [...prev, room]);
+      }
+    } catch (err: any) {
+      setError(`Failed to accept invite: ${err.message}`);
+    }
+  }, [client]);
+
+  const rejectInvite = useCallback(async (roomId: string) => {
+    if (!client) return;
+    try {
+      await client.leave(roomId);
+      setInvitedRooms(prev => prev.filter(r => r.roomId !== roomId));
+    } catch (err: any) {
+      setError(`Failed to reject invite: ${err.message}`);
+    }
+  }, [client]);
+
+  const searchUsers = useCallback(async (query: string): Promise<PublicUser[]> => {
+    if (!client || !query.trim()) return [];
+    try {
+      const response = await client.searchUserDirectory({ term: query });
+      return response.results.map((user: any) => ({
+        userId: user.user_id,
+        displayName: user.display_name,
+        avatarUrl: user.avatar_url
+      }));
+    } catch (err: any) {
+      console.error("Failed to search users:", err.message);
+      return [];
+    }
+  }, [client]);
+
   // Initialize with token if provided via props
   useEffect(() => {
     if (token && userId && baseUrl && !isLoggedIn) {
@@ -310,7 +530,12 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
     loading,
     error,
     rooms,
+    sortedRooms,
+    publicRooms,
+    invitedRooms,
+    publicUsers,
     currentRoom,
+    currentView,
     messages,
     allMessages,
     initializeWithToken,
@@ -322,6 +547,12 @@ export const MatrixProvider: React.FC<MatrixProviderProps> = ({ children, token,
     sendMessage,
     setCurrentRoom,
     leaveCurrentRoom,
+    refreshPublicRooms,
+    inviteUser,
+    acceptInvite,
+    rejectInvite,
+    setCurrentView,
+    searchUsers,
   };
 
   return (

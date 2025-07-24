@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { config } from '../app/config';
+import { config } from '../app/env.server';
 
 test('health check', async ({ page }) => {
     const baseUrl = config.APP_BASE_URL;

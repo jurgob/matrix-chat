@@ -1,10 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
-import { config } from '../app/config';
-test.beforeEach(async ({ page }, testInfo) => {
-  // Extend timeout for all tests running this hook by 30 seconds.
-  testInfo.setTimeout(20000);
-});
+import { config } from '../app/env.server';
 
 test('Complete user flow', async ({ page }) => {
   const uuid = randomUUID();
@@ -45,20 +41,22 @@ test('Complete user flow', async ({ page }) => {
     await page.getByPlaceholder('Enter room name').fill(testChat);
     await page.getByRole('button', { name: /create room/i }).click();
     
-    // Verify that the room appears in the sidebar immediately without refresh
-    await expect(page.getByText(`# ${testChat}`)).toBeVisible({ timeout: 5000 });
+    // Verify that the room appears in the sidebar (look for button in sidebar)
+    await expect(page.locator('.bg-gray-800').getByText(`# ${testChat}`)).toBeVisible({ timeout: 5000 });
     
-    // Verify we're now in the created room (header should show the room name)
-    await expect(page.getByText(`# ${testChat}`).first()).toBeVisible();
+    // Verify we're now in the created room (check header)
+    await expect(page.getByRole('heading', { name: `# ${testChat}` })).toBeVisible();
   });
 
   await test.step('Join the new chat', async () => {
-    await page.getByText(`# ${testChat}`).click();
+    // Click on the room in the sidebar
+    await page.locator('.bg-gray-800').getByText(`# ${testChat}`).click();
   });
 
    await test.step('Load the new chat and send message', async () => {
-    await expect(page.getByText(`# ${testChat}`)).toBeVisible();
-    // await page.getByRole('button', { name: 'Join', exact: true }).click();
+    // Verify we're in the chat (check header)
+    await expect(page.getByRole('heading', { name: `# ${testChat}` })).toBeVisible();
+    
     await page.getByLabel(/message/i).fill(testMessage);
     await page.getByRole('button', { name: /send/i }).click();
     await expect(page.getByText(testMessage)).toBeVisible();

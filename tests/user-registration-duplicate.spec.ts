@@ -1,10 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
-import { config } from '../app/config';
-
-test.beforeEach(async ({ page }, testInfo) => {
-  testInfo.setTimeout(20000);
-});
+import { config } from '../app/env.server';
 
 test('Duplicate user registration should show error', async ({ page }) => {
   const uuid = randomUUID();
